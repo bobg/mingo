@@ -2,12 +2,12 @@ package mingo
 
 import (
 	"bufio"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -20,6 +20,13 @@ import (
 // It maps a Go stdlib package names to their individual histories.
 type History map[string]PkgHistory
 
+func (h History) lookup(pkgpath, id, typ string) int {
+	if p, ok := h[pkgpath]; ok {
+		return p.lookup(id, typ)
+	}
+	return 0
+}
+
 // PkgHistory is the history of a single Go stdlib package.
 type PkgHistory struct {
 	// IDs maps top-level identifiers to the minor version of Go at which they were first introduced.
@@ -31,6 +38,16 @@ type PkgHistory struct {
 	// First map key is the type name within its package;
 	// second map key is the identifier in the type's scope.
 	Types map[string]map[string]int
+}
+
+func (p PkgHistory) lookup(id, typ string) int {
+	if typ == "" {
+		return p.IDs[id]
+	}
+	if t, ok := p.Types[typ]; ok {
+		return t[id]
+	}
+	return 0
 }
 
 // ReadHist reads the history of the Go stdlib
@@ -46,15 +63,33 @@ func ReadHist(dir string) (History, error) {
 	return ReadHistFS(os.DirFS(dir), ".")
 }
 
+var apifilenameRegex = regexp.MustCompile(`^go1\.(\d+)\.txt$`)
+
 // ReadHistFS reads the history of the Go stdlib
 // from the sequence of go1.*.txt files
 // in the given directory within the given filesystem.
-func ReadHistFS(fs fs.FS, dir string) (History, error) {
+func ReadHistFS(fsys fs.FS, dir string) (History, error) {
 	h := make(History)
 
-	for i := MinGoMinorVersion; i <= MaxGoMinorVersion; i++ {
-		if err := readHistVersion(h, fs, dir, i); err != nil {
-			return nil, errors.Wrapf(err, "reading history version %d", i)
+	entries, err := fs.ReadDir(fsys, dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		base := entry.Name()
+		m := apifilenameRegex.FindStringSubmatch(base)
+		if len(m) == 0 {
+			continue
+		}
+		v, err := strconv.Atoi(m[1])
+		if err != nil {
+			return nil, errors.Wrapf(err, "parsing version from filename %s", base)
+		}
+		if err = readHistVersion(h, fsys, filepath.Join(dir, base), v); err != nil {
+			return nil, errors.Wrapf(err, "reading version %d history", v)
 		}
 	}
 
@@ -68,9 +103,8 @@ func goroot() string {
 	return runtime.GOROOT()
 }
 
-func readHistVersion(h History, fs fs.FS, dir string, v int) error {
-	filename := filepath.Join(dir, fmt.Sprintf("go1.%d.txt", v))
-	f, err := fs.Open(filename)
+func readHistVersion(h History, fsys fs.FS, filename string, v int) error {
+	f, err := fsys.Open(filename)
 	if err != nil {
 		return errors.Wrapf(err, "opening %s", filename)
 	}
@@ -79,7 +113,7 @@ func readHistVersion(h History, fs fs.FS, dir string, v int) error {
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := sc.Text()
-		if strings.HasPrefix(line, "#") {
+		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		if m := constRegex.FindStringSubmatch(line); len(m) > 0 {

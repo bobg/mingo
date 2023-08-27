@@ -5,261 +5,265 @@ import (
 	"go/ast"
 )
 
-func (s scanner) stmt(stmt ast.Stmt) (int, error) {
+func (p *pkgScanner) stmt(stmt ast.Stmt) error {
 	if stmt == nil {
-		return 0, nil
+		return nil
 	}
 
 	switch stmt := stmt.(type) {
 	case *ast.DeclStmt:
-		return s.declStmt(stmt)
+		return p.declStmt(stmt)
 	case *ast.EmptyStmt:
-		return MinGoMinorVersion, nil
+		return nil
 	case *ast.LabeledStmt:
-		return s.labeledStmt(stmt)
+		return p.labeledStmt(stmt)
 	case *ast.ExprStmt:
-		return s.exprStmt(stmt)
+		return p.exprStmt(stmt)
 	case *ast.SendStmt:
-		return s.sendStmt(stmt)
+		return p.sendStmt(stmt)
 	case *ast.IncDecStmt:
-		return s.incDecStmt(stmt)
+		return p.incDecStmt(stmt)
 	case *ast.AssignStmt:
-		return s.assignStmt(stmt)
+		return p.assignStmt(stmt)
 	case *ast.GoStmt:
-		return s.goStmt(stmt)
+		return p.goStmt(stmt)
 	case *ast.DeferStmt:
-		return s.deferStmt(stmt)
+		return p.deferStmt(stmt)
 	case *ast.ReturnStmt:
-		return s.returnStmt(stmt)
+		return p.returnStmt(stmt)
 	case *ast.BranchStmt:
-		return MinGoMinorVersion, nil
+		return nil
 	case *ast.BlockStmt:
-		return s.blockStmt(stmt)
+		return p.blockStmt(stmt)
 	case *ast.IfStmt:
-		return s.ifStmt(stmt)
+		return p.ifStmt(stmt)
 	case *ast.CaseClause:
-		return s.caseClause(stmt)
+		return p.caseClause(stmt)
 	case *ast.SwitchStmt:
-		return s.switchStmt(stmt)
+		return p.switchStmt(stmt)
 	case *ast.TypeSwitchStmt:
-		return s.typeSwitchStmt(stmt)
+		return p.typeSwitchStmt(stmt)
 	case *ast.CommClause:
-		return s.commClause(stmt)
+		return p.commClause(stmt)
 	case *ast.SelectStmt:
-		return s.selectStmt(stmt)
+		return p.selectStmt(stmt)
 	case *ast.ForStmt:
-		return s.forStmt(stmt)
+		return p.forStmt(stmt)
 	case *ast.RangeStmt:
-		return s.rangeStmt(stmt)
+		return p.rangeStmt(stmt)
 	default:
-		return 0, fmt.Errorf("unknown statement type %T", stmt)
+		return fmt.Errorf("unknown statement type %T", stmt)
 	}
 }
 
-func (s scanner) declStmt(stmt *ast.DeclStmt) (int, error) {
-	return s.decl(stmt.Decl)
+func (p *pkgScanner) declStmt(stmt *ast.DeclStmt) error {
+	return p.decl(stmt.Decl)
 }
 
-func (s scanner) labeledStmt(stmt *ast.LabeledStmt) (int, error) {
-	return s.stmt(stmt.Stmt)
+func (p *pkgScanner) labeledStmt(stmt *ast.LabeledStmt) error {
+	return p.stmt(stmt.Stmt)
 }
 
-func (s scanner) exprStmt(stmt *ast.ExprStmt) (int, error) {
-	return s.expr(stmt.X)
+func (p *pkgScanner) exprStmt(stmt *ast.ExprStmt) error {
+	return p.expr(stmt.X)
 }
 
-func (s scanner) sendStmt(stmt *ast.SendStmt) (int, error) {
-	result1, err := s.expr(stmt.Chan)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) sendStmt(stmt *ast.SendStmt) error {
+	if err := p.expr(stmt.Chan); err != nil {
+		return err
 	}
-	result2, err := s.expr(stmt.Value)
-	return max(result1, result2), err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.expr(stmt.Value)
 }
 
-func (s scanner) incDecStmt(stmt *ast.IncDecStmt) (int, error) {
-	return s.expr(stmt.X)
+func (p *pkgScanner) incDecStmt(stmt *ast.IncDecStmt) error {
+	return p.expr(stmt.X)
 }
 
-func (s scanner) assignStmt(stmt *ast.AssignStmt) (int, error) {
-	result := MinGoMinorVersion
+func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) error {
 	for _, expr := range stmt.Lhs {
-		exprResult, err := s.expr(expr)
-		if err != nil {
-			return 0, err
+		if err := p.expr(expr); err != nil {
+			return err
 		}
-		result = max(result, exprResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
 	for _, expr := range stmt.Rhs {
-		exprResult, err := s.expr(expr)
-		if err != nil {
-			return 0, err
+		if err := p.expr(expr); err != nil {
+			return err
 		}
-		result = max(result, exprResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s scanner) goStmt(stmt *ast.GoStmt) (int, error) {
-	return s.callExpr(stmt.Call)
+func (p *pkgScanner) goStmt(stmt *ast.GoStmt) error {
+	return p.callExpr(stmt.Call)
 }
 
-func (s scanner) deferStmt(stmt *ast.DeferStmt) (int, error) {
-	return s.callExpr(stmt.Call)
+func (p *pkgScanner) deferStmt(stmt *ast.DeferStmt) error {
+	return p.callExpr(stmt.Call)
 }
 
-func (s scanner) returnStmt(stmt *ast.ReturnStmt) (int, error) {
-	result := MinGoMinorVersion
+func (p *pkgScanner) returnStmt(stmt *ast.ReturnStmt) error {
 	for _, expr := range stmt.Results {
-		exprResult, err := s.expr(expr)
-		if err != nil {
-			return 0, err
+		if err := p.expr(expr); err != nil {
+			return err
 		}
-		result = max(result, exprResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s scanner) blockStmt(stmt *ast.BlockStmt) (int, error) {
-	result := MinGoMinorVersion
+func (p *pkgScanner) blockStmt(stmt *ast.BlockStmt) error {
 	for _, stmt := range stmt.List {
-		stmtResult, err := s.stmt(stmt)
-		if err != nil {
-			return 0, err
+		if err := p.stmt(stmt); err != nil {
+			return err
 		}
-		result = max(result, stmtResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s scanner) ifStmt(stmt *ast.IfStmt) (int, error) {
-	result1, err := s.expr(stmt.Cond)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) ifStmt(stmt *ast.IfStmt) error {
+	if err := p.expr(stmt.Cond); err != nil {
+		return err
 	}
-	result2, err := s.blockStmt(stmt.Body)
-	if err != nil {
-		return 0, err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	result3, err := s.stmt(stmt.Else)
-	return max(result1, result2, result3), err
+	if err := p.blockStmt(stmt.Body); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.stmt(stmt.Else)
 }
 
-func (s scanner) caseClause(stmt *ast.CaseClause) (int, error) {
-	result := MinGoMinorVersion
+func (p *pkgScanner) caseClause(stmt *ast.CaseClause) error {
 	for _, expr := range stmt.List {
-		exprResult, err := s.expr(expr)
-		if err != nil {
-			return 0, err
+		if err := p.expr(expr); err != nil {
+			return err
 		}
-		result = max(result, exprResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
 	for _, stmt := range stmt.Body {
-		stmtResult, err := s.stmt(stmt)
-		if err != nil {
-			return 0, err
+		if err := p.stmt(stmt); err != nil {
+			return err
 		}
-		result = max(result, stmtResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s scanner) switchStmt(stmt *ast.SwitchStmt) (int, error) {
-	result1, err := s.stmt(stmt.Init)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) switchStmt(stmt *ast.SwitchStmt) error {
+	if err := p.stmt(stmt.Init); err != nil {
+		return err
 	}
-	result2, err := s.expr(stmt.Tag)
-	if err != nil {
-		return 0, err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	result3, err := s.blockStmt(stmt.Body)
-	return max(result1, result2, result3), err
+	if err := p.expr(stmt.Tag); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.blockStmt(stmt.Body)
 }
 
-func (s scanner) typeSwitchStmt(stmt *ast.TypeSwitchStmt) (int, error) {
-	result1, err := s.stmt(stmt.Init)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) typeSwitchStmt(stmt *ast.TypeSwitchStmt) error {
+	if err := p.stmt(stmt.Init); err != nil {
+		return err
 	}
-	result2, err := s.stmt(stmt.Assign)
-	if err != nil {
-		return 0, err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	result3, err := s.blockStmt(stmt.Body)
-	return max(result1, result2, result3), err
+	if err := p.stmt(stmt.Assign); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.blockStmt(stmt.Body)
 }
 
-func (s scanner) commClause(stmt *ast.CommClause) (int, error) {
-	result, err := s.stmt(stmt.Comm)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) commClause(stmt *ast.CommClause) error {
+	if err := p.stmt(stmt.Comm); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
 	for _, stmt := range stmt.Body {
-		stmtResult, err := s.stmt(stmt)
-		if err != nil {
-			return 0, err
+		if err := p.stmt(stmt); err != nil {
+			return err
 		}
-		result = max(result, stmtResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s scanner) selectStmt(stmt *ast.SelectStmt) (int, error) {
-	return s.blockStmt(stmt.Body)
+func (p *pkgScanner) selectStmt(stmt *ast.SelectStmt) error {
+	return p.blockStmt(stmt.Body)
 }
 
-func (s scanner) forStmt(stmt *ast.ForStmt) (int, error) {
-	result1, err := s.stmt(stmt.Init)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) forStmt(stmt *ast.ForStmt) error {
+	if err := p.stmt(stmt.Init); err != nil {
+		return err
 	}
-	result2, err := s.expr(stmt.Cond)
-	if err != nil {
-		return 0, err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	result3, err := s.stmt(stmt.Post)
-	if err != nil {
-		return 0, err
+	if err := p.expr(stmt.Cond); err != nil {
+		return err
 	}
-	result4, err := s.blockStmt(stmt.Body)
-	return max(result1, result2, result3, result4), err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	if err := p.stmt(stmt.Post); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.blockStmt(stmt.Body)
 }
 
-func (s scanner) rangeStmt(stmt *ast.RangeStmt) (int, error) {
-	result1, err := s.expr(stmt.Key)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
+	if err := p.expr(stmt.Key); err != nil {
+		return err
 	}
-	result2, err := s.expr(stmt.Value)
-	if err != nil {
-		return 0, err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	result3, err := s.expr(stmt.X)
-	if err != nil {
-		return 0, err
+	if err := p.expr(stmt.Value); err != nil {
+		return err
 	}
-	result4, err := s.blockStmt(stmt.Body)
-	return max(result1, result2, result3, result4), err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	if err := p.expr(stmt.X); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.blockStmt(stmt.Body)
 }

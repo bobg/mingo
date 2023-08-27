@@ -10,24 +10,28 @@ import (
 
 func main() {
 	var (
-		dir = "."
-		api string
+		dir     = "."
+		api     string
+		verbose bool
+		deps    bool
 	)
 	flag.StringVar(&dir, "dir", dir, "directory to scan")
 	flag.StringVar(&api, "api", "", "path to api directory")
+	flag.BoolVar(&verbose, "v", false, "be verbose")
+	flag.BoolVar(&deps, "deps", false, "include dependencies")
 	flag.Parse()
 
-	h, err := mingo.ReadHist(api)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading API: %s\n", err)
-		os.Exit(1)
+	s := mingo.Scanner{
+		HistDir: api,
+		Verbose: verbose,
+		Deps:    deps,
 	}
 
-	result, err := mingo.ScanDir(dir, h)
+	result, err := s.ScanDir(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error scanning directory: %s\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(result)
+	fmt.Println(result.String())
 }

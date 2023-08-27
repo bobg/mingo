@@ -6,192 +6,265 @@ import (
 	"go/types"
 )
 
-func (s scanner) expr(expr ast.Expr) (int, error) {
+func (p *pkgScanner) expr(expr ast.Expr) error {
 	if expr == nil {
-		return 0, nil
+		return nil
 	}
 
 	switch expr := expr.(type) {
 	case *ast.Ident:
-		return s.ident(expr)
+		return p.ident(expr)
 	case *ast.Ellipsis:
-		return MinGoMinorVersion, nil
+		return nil
 	case *ast.BasicLit:
-		return s.basicLit(expr)
+		return p.basicLit(expr)
 	case *ast.FuncLit:
-		return s.funcLit(expr)
+		return p.funcLit(expr)
 	case *ast.CompositeLit:
-		return s.compositeLit(expr)
+		return p.compositeLit(expr)
 	case *ast.ParenExpr:
-		return s.parenExpr(expr)
+		return p.parenExpr(expr)
 	case *ast.SelectorExpr:
-		return s.selectorExpr(expr)
+		return p.selectorExpr(expr)
 	case *ast.IndexExpr:
-		return s.indexExpr(expr)
+		return p.indexExpr(expr)
 	case *ast.IndexListExpr:
-		return s.indexListExpr(expr)
+		return p.indexListExpr(expr)
 	case *ast.SliceExpr:
-		return s.sliceExpr(expr)
+		return p.sliceExpr(expr)
 	case *ast.TypeAssertExpr:
-		return s.typeAssertExpr(expr)
+		return p.typeAssertExpr(expr)
 	case *ast.CallExpr:
-		return s.callExpr(expr)
+		return p.callExpr(expr)
 	case *ast.StarExpr:
-		return s.starExpr(expr)
+		return p.starExpr(expr)
 	case *ast.UnaryExpr:
-		return s.unaryExpr(expr)
+		return p.unaryExpr(expr)
 	case *ast.BinaryExpr:
-		return s.binaryExpr(expr)
+		return p.binaryExpr(expr)
 	case *ast.KeyValueExpr:
-		return s.keyValueExpr(expr)
+		return p.keyValueExpr(expr)
 	case *ast.ArrayType:
-		return s.arrayType(expr)
+		return p.arrayType(expr)
 	case *ast.StructType:
-		return s.structType(expr)
+		return p.structType(expr)
 	case *ast.FuncType:
-		return s.funcType(expr)
+		return p.funcType(expr)
 	case *ast.InterfaceType:
-		return s.interfaceType(expr)
+		return p.interfaceType(expr)
 	case *ast.MapType:
-		return s.mapType(expr)
+		return p.mapType(expr)
 	case *ast.ChanType:
-		return s.chanType(expr)
+		return p.chanType(expr)
 	default:
-		return 0, fmt.Errorf("unknown expr type %T", expr)
+		return fmt.Errorf("unknown expr type %T", expr)
 	}
 }
 
-func (s scanner) ident(ident *ast.Ident) (int, error) {
-	if tv, ok := s.pkg.TypesInfo.Types[ident]; ok && tv.IsBuiltin() && ident.Name == "any" {
-		return 18, nil
+func (p *pkgScanner) ident(ident *ast.Ident) error {
+	if tv, ok := p.info.Types[ident]; ok && tv.IsBuiltin() && ident.Name == "any" {
+		idResult := posResult{
+			version: 18,
+			pos:     p.fset.Position(ident.Pos()),
+			desc:    `"any" builtin`,
+		}
+		p.greater(idResult)
+		return nil
 	}
-	obj, ok := s.pkg.TypesInfo.Uses[ident]
+	obj, ok := p.info.Uses[ident]
 	if !ok || obj == nil {
-		return 0, nil
+		return nil
 	}
 	pkg := obj.Pkg()
 	if pkg == nil {
-		return 0, nil
+		return nil
 	}
 	pkgpath := obj.Pkg().Path()
-	return s.lookup(pkgpath, ident.Name, ""), nil
-}
-
-func (s scanner) basicLit(lit *ast.BasicLit) (int, error) {
-	return MinGoMinorVersion, nil
-}
-
-func (s scanner) funcLit(lit *ast.FuncLit) (int, error) {
-	return MinGoMinorVersion, nil
-}
-
-func (s scanner) compositeLit(lit *ast.CompositeLit) (int, error) {
-	return MinGoMinorVersion, nil
-}
-
-func (s scanner) parenExpr(expr *ast.ParenExpr) (int, error) {
-	return s.expr(expr.X)
-}
-
-func (s scanner) selectorExpr(expr *ast.SelectorExpr) (int, error) {
-	if sel, ok := s.pkg.TypesInfo.Selections[expr]; ok {
-		pkgpath := sel.Obj().Pkg().Path()
-		if v := s.lookup(pkgpath, expr.Sel.Name, types.TypeString(sel.Type(), nil)); v > 0 {
-			return v, nil
+	if v := p.s.lookup(pkgpath, ident.Name, ""); v > 0 {
+		idResult := posResult{
+			version: v,
+			pos:     p.fset.Position(ident.Pos()),
+			desc:    fmt.Sprintf(`"%s".%s`, pkgpath, ident.Name),
 		}
+		p.greater(idResult)
 	}
-
-	return s.expr(expr.X)
+	return nil
 }
 
-func (s scanner) indexExpr(expr *ast.IndexExpr) (int, error) {
-	result1, err := s.expr(expr.X)
-	if err != nil {
-		return 0, err
-	}
-	result2, err := s.expr(expr.Index)
-	return max(result1, result2), err
+// xxx check for expanded numeric-literal syntax
+func (p *pkgScanner) basicLit(lit *ast.BasicLit) error {
+	return nil
 }
 
-func (s scanner) indexListExpr(expr *ast.IndexListExpr) (int, error) {
-	result, err := s.expr(expr.X)
-	if err != nil {
-		return 0, err
+// xxx check for non-empty type params
+func (p *pkgScanner) funcLit(lit *ast.FuncLit) error {
+	return nil
+}
+
+func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) error {
+	return nil
+}
+
+func (p *pkgScanner) parenExpr(expr *ast.ParenExpr) error {
+	return p.expr(expr.X)
+}
+
+func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
+	if err := p.expr(expr.X); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+
+	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
+		pkg := obj.Pkg()
+		if pkg == nil {
+			return nil
+		}
+		pkgpath := obj.Pkg().Path()
+		if v := p.s.lookup(pkgpath, expr.Sel.Name, ""); v > 0 {
+			selResult := posResult{
+				version: v,
+				pos:     p.fset.Position(expr.Pos()),
+				desc:    fmt.Sprintf(`"%s".%s`, pkgpath, expr.Sel.Name),
+			}
+			p.greater(selResult)
+		}
+		return nil
+	}
+
+	sel, ok := p.info.Selections[expr]
+	if !ok {
+		return nil
+	}
+	obj := sel.Obj()
+	if obj == nil {
+		return nil
+	}
+	pkg := obj.Pkg()
+	if pkg == nil {
+		return nil
+	}
+	pkgpath := obj.Pkg().Path()
+
+	typ := sel.Recv()
+	if ptr, ok := typ.(*types.Pointer); ok {
+		typ = ptr.Elem()
+	}
+	typestr := typ.String()
+
+	v := p.s.lookup(pkgpath, expr.Sel.Name, typestr)
+	if v == 0 {
+		return nil
+	}
+
+	selResult := posResult{
+		version: v,
+		pos:     p.fset.Position(expr.Pos()),
+		desc:    fmt.Sprintf(`"%s".%s.%s`, pkgpath, typestr, expr.Sel.Name),
+	}
+	p.greater(selResult)
+	return nil
+}
+
+func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) error {
+	if err := p.expr(expr.X); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.expr(expr.Index)
+}
+
+func (p *pkgScanner) indexListExpr(expr *ast.IndexListExpr) error {
+	if err := p.expr(expr.X); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
 	for _, index := range expr.Indices {
-		indexResult, err := s.expr(index)
-		if err != nil {
-			return 0, err
+		if err := p.expr(index); err != nil {
+			return err
 		}
-		result = max(result, indexResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
-	return result, nil
+	return nil
 }
 
-func (s scanner) sliceExpr(expr *ast.SliceExpr) (int, error) {
-	result1, err := s.expr(expr.X)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) sliceExpr(expr *ast.SliceExpr) error {
+	if err := p.expr(expr.X); err != nil {
+		return err
 	}
-	result2, err := s.expr(expr.Low)
-	if err != nil {
-		return 0, err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	result3, err := s.expr(expr.High)
-	if err != nil {
-		return 0, err
+	if err := p.expr(expr.Low); err != nil {
+		return err
 	}
-	result4, err := s.expr(expr.Max)
-	return max(result1, result2, result3, result4), err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	if err := p.expr(expr.High); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.expr(expr.Max)
 }
 
-func (s scanner) typeAssertExpr(expr *ast.TypeAssertExpr) (int, error) {
-	result1, err := s.expr(expr.X)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) typeAssertExpr(expr *ast.TypeAssertExpr) error {
+	if err := p.expr(expr.X); err != nil {
+		return err
 	}
-	result2, err := s.expr(expr.Type)
-	return max(result1, result2), err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.expr(expr.Type)
 }
 
-func (s scanner) callExpr(expr *ast.CallExpr) (int, error) {
-	tv, ok := s.pkg.TypesInfo.Types[expr.Fun]
+func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
+	tv, ok := p.info.Types[expr.Fun]
 	if !ok {
-		return 0, fmt.Errorf("no type info for call expression")
+		return fmt.Errorf("no type info for call expression at %s", p.fset.Position(expr.Pos()))
 	}
 
 	switch {
 	case tv.IsType() && len(expr.Args) == 1:
-		return s.typeConversion(expr, tv)
+		return p.typeConversion(expr, tv)
 	case tv.IsBuiltin():
-		return s.builtinCall(expr)
+		return p.builtinCall(expr)
 	}
 
-	result, err := s.expr(expr.Fun)
-	if err != nil {
-		return 0, err
+	if err := p.expr(expr.Fun); err != nil {
+		return err
 	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+
 	for _, arg := range expr.Args {
-		argResult, err := s.expr(arg)
-		if err != nil {
-			return 0, err
+		if err := p.expr(arg); err != nil {
+			return err
 		}
-		result = max(result, argResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.result.Version() == MaxGoMinorVersion {
+			return nil
 		}
 	}
-	return result, nil
+
+	return nil
 }
 
 // expr.Fun is a type expression, and len(expr.Args) == 1.
-func (s scanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue) (int, error) {
-	argtv, ok := s.pkg.TypesInfo.Types[expr.Args[0]]
+func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue) error {
+	argtv, ok := p.info.Types[expr.Args[0]]
 	if !ok {
-		return 0, fmt.Errorf("no type info for type conversion argument")
+		return fmt.Errorf("no type info for type conversion argument at %s", p.fset.Position(expr.Args[0].Pos()))
 	}
 
 	// Is this a conversion from slice to array or array pointer?
@@ -201,30 +274,46 @@ func (s scanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue) (i
 	)
 	if _, ok := argtyp.(*types.Slice); ok {
 		if _, ok := funtyp.(*types.Array); ok {
-			return 20, nil
+			convResult := posResult{
+				version: 20,
+				pos:     p.fset.Position(expr.Pos()),
+				desc:    fmt.Sprintf("conversion from slice to array"),
+			}
+			p.greater(convResult)
+			return nil
 		}
 		if ptr, ok := funtyp.(*types.Pointer); ok {
 			elemtype := ptr.Elem().Underlying()
 			if _, ok := elemtype.(*types.Array); ok {
-				return 17, nil
+				convResult := posResult{
+					version: 17,
+					pos:     p.fset.Position(expr.Pos()),
+					desc:    fmt.Sprintf("conversion from slice to array pointer"),
+				}
+				p.greater(convResult)
+				return nil
 			}
 		}
 	}
 
-	return MinGoMinorVersion, nil
+	return nil
 }
 
-func (s scanner) builtinCall(expr *ast.CallExpr) (int, error) {
+func (p *pkgScanner) builtinCall(expr *ast.CallExpr) error {
 	id := getID(expr.Fun)
 	if id == nil {
-		return 0, fmt.Errorf("builtin call expression has no identifier")
+		return fmt.Errorf("builtin call expression has no identifier")
 	}
 	switch id.Name {
 	case "min", "max", "clear":
-		return 21, nil
-	default:
-		return MinGoMinorVersion, nil
+		result := posResult{
+			version: 21,
+			pos:     p.fset.Position(expr.Pos()),
+			desc:    fmt.Sprintf("use of %s builtin", id.Name),
+		}
+		p.greater(result)
 	}
+	return nil
 }
 
 func getID(expr ast.Expr) *ast.Ident {
@@ -238,84 +327,84 @@ func getID(expr ast.Expr) *ast.Ident {
 	}
 }
 
-func (s scanner) starExpr(expr *ast.StarExpr) (int, error) {
-	return s.expr(expr.X)
+func (p *pkgScanner) starExpr(expr *ast.StarExpr) error {
+	return p.expr(expr.X)
 }
 
-func (s scanner) unaryExpr(expr *ast.UnaryExpr) (int, error) {
-	return s.expr(expr.X)
+func (p *pkgScanner) unaryExpr(expr *ast.UnaryExpr) error {
+	return p.expr(expr.X)
 }
 
-func (s scanner) binaryExpr(expr *ast.BinaryExpr) (int, error) {
-	result1, err := s.expr(expr.X)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) binaryExpr(expr *ast.BinaryExpr) error {
+	if err := p.expr(expr.X); err != nil {
+		return err
 	}
-	result2, err := s.expr(expr.Y)
-	return max(result1, result2), err
-}
-
-func (s scanner) keyValueExpr(expr *ast.KeyValueExpr) (int, error) {
-	result1, err := s.expr(expr.Key)
-	if err != nil {
-		return 0, err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	result2, err := s.expr(expr.Value)
-	return max(result1, result2), err
+	return p.expr(expr.Y)
 }
 
-func (s scanner) arrayType(expr *ast.ArrayType) (int, error) {
-	result1, err := s.expr(expr.Len)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) keyValueExpr(expr *ast.KeyValueExpr) error {
+	if err := p.expr(expr.Key); err != nil {
+		return err
 	}
-	result2, err := s.expr(expr.Elt)
-	return max(result1, result2), err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.expr(expr.Value)
 }
 
-func (s scanner) structType(expr *ast.StructType) (int, error) {
-	return s.fieldList(expr.Fields)
+func (p *pkgScanner) arrayType(expr *ast.ArrayType) error {
+	if err := p.expr(expr.Len); err != nil {
+		return err
+	}
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.expr(expr.Elt)
 }
 
-func (s scanner) funcType(expr *ast.FuncType) (int, error) {
-	result := MinGoMinorVersion
+func (p *pkgScanner) structType(expr *ast.StructType) error {
+	return p.fieldList(expr.Fields)
+}
+
+func (p *pkgScanner) funcType(expr *ast.FuncType) error {
 	if expr.TypeParams != nil && len(expr.TypeParams.List) > 0 {
-		result = 18
-		typeParamsResult, err := s.fieldList(expr.TypeParams)
-		if err != nil {
-			return 0, err
+		result := posResult{
+			version: 18,
+			pos:     p.fset.Position(expr.Pos()),
+			desc:    fmt.Sprintf("generic function type"),
 		}
-		result = max(result, typeParamsResult)
-		if result == MaxGoMinorVersion {
-			return result, nil
+		if p.greater(result) {
+			return nil
 		}
 	}
 
-	exprResult, err := s.fieldList(expr.Params)
-	if err != nil {
-		return 0, err
+	if err := p.fieldList(expr.Params); err != nil {
+		return err
 	}
-	result = max(result, exprResult)
-	if result == MaxGoMinorVersion {
-		return result, nil
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
 	}
-	resultsResult, err := s.fieldList(expr.Results)
-	return max(result, resultsResult), err
+	return p.fieldList(expr.Results)
 }
 
-func (s scanner) interfaceType(expr *ast.InterfaceType) (int, error) {
-	return s.fieldList(expr.Methods)
+// xxx look for types in the field list; e.g. `interface { int8 | int16 | int32 | int64 }`
+func (p *pkgScanner) interfaceType(expr *ast.InterfaceType) error {
+	return p.fieldList(expr.Methods)
 }
 
-func (s scanner) mapType(expr *ast.MapType) (int, error) {
-	result1, err := s.expr(expr.Key)
-	if err != nil {
-		return 0, err
+func (p *pkgScanner) mapType(expr *ast.MapType) error {
+	if err := p.expr(expr.Key); err != nil {
+		return err
 	}
-	result2, err := s.expr(expr.Value)
-	return max(result1, result2), err
+	if p.result.Version() == MaxGoMinorVersion {
+		return nil
+	}
+	return p.expr(expr.Value)
 }
 
-func (s scanner) chanType(expr *ast.ChanType) (int, error) {
-	return s.expr(expr.Value)
+func (p *pkgScanner) chanType(expr *ast.ChanType) error {
+	return p.expr(expr.Value)
 }
