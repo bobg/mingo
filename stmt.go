@@ -72,7 +72,7 @@ func (p *pkgScanner) sendStmt(stmt *ast.SendStmt) error {
 	if err := p.expr(stmt.Chan); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(stmt.Value)
@@ -87,7 +87,7 @@ func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) error {
 		if err := p.expr(expr); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -95,7 +95,7 @@ func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) error {
 		if err := p.expr(expr); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -115,7 +115,7 @@ func (p *pkgScanner) returnStmt(stmt *ast.ReturnStmt) error {
 		if err := p.expr(expr); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -127,7 +127,7 @@ func (p *pkgScanner) blockStmt(stmt *ast.BlockStmt) error {
 		if err := p.stmt(stmt); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -138,13 +138,13 @@ func (p *pkgScanner) ifStmt(stmt *ast.IfStmt) error {
 	if err := p.expr(stmt.Cond); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.blockStmt(stmt.Body); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.stmt(stmt.Else)
@@ -155,7 +155,7 @@ func (p *pkgScanner) caseClause(stmt *ast.CaseClause) error {
 		if err := p.expr(expr); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -163,7 +163,7 @@ func (p *pkgScanner) caseClause(stmt *ast.CaseClause) error {
 		if err := p.stmt(stmt); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -174,13 +174,13 @@ func (p *pkgScanner) switchStmt(stmt *ast.SwitchStmt) error {
 	if err := p.stmt(stmt.Init); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.expr(stmt.Tag); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.blockStmt(stmt.Body)
@@ -190,13 +190,13 @@ func (p *pkgScanner) typeSwitchStmt(stmt *ast.TypeSwitchStmt) error {
 	if err := p.stmt(stmt.Init); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.stmt(stmt.Assign); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.blockStmt(stmt.Body)
@@ -206,14 +206,14 @@ func (p *pkgScanner) commClause(stmt *ast.CommClause) error {
 	if err := p.stmt(stmt.Comm); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	for _, stmt := range stmt.Body {
 		if err := p.stmt(stmt); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -228,19 +228,19 @@ func (p *pkgScanner) forStmt(stmt *ast.ForStmt) error {
 	if err := p.stmt(stmt.Init); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.expr(stmt.Cond); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.stmt(stmt.Post); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.blockStmt(stmt.Body)
@@ -250,19 +250,19 @@ func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
 	if err := p.expr(stmt.Key); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.expr(stmt.Value); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.expr(stmt.X); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.blockStmt(stmt.Body)

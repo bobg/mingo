@@ -6,7 +6,7 @@ import (
 )
 
 func TestHistory(t *testing.T) {
-	h, err := ReadHist("")
+	h, err := readHist("")
 	if err != nil {
 		t.Fatal(err)
 	}

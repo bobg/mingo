@@ -15,61 +15,61 @@ import (
 	"github.com/bobg/go-generics/v3/slices"
 )
 
-// History is the history of the Go stdlib,
+// Type history is the history of the Go stdlib,
 // as parsed from the files in $GOROOT/api.
 // It maps a Go stdlib package names to their individual histories.
-type History map[string]PkgHistory
+type history map[string]pkgHistory
 
-func (h History) lookup(pkgpath, id, typ string) int {
+func (h history) lookup(pkgpath, id, typ string) int {
 	if p, ok := h[pkgpath]; ok {
 		return p.lookup(id, typ)
 	}
 	return 0
 }
 
-// PkgHistory is the history of a single Go stdlib package.
-type PkgHistory struct {
-	// IDs maps top-level identifiers to the minor version of Go at which they were first introduced.
-	IDs map[string]int
+// Type pkgHistory is the history of a single Go stdlib package.
+type pkgHistory struct {
+	// Maps top-level identifiers to the minor version of Go at which they were first introduced.
+	ids map[string]int
 
-	// Types maps type "members" -
+	// Maps type "members" -
 	// method names and struct fields -
 	// to the minor version of Go at which they were first introduced.
 	// First map key is the type name within its package;
 	// second map key is the identifier in the type's scope.
-	Types map[string]map[string]int
+	types map[string]map[string]int
 }
 
-func (p PkgHistory) lookup(id, typ string) int {
+func (p pkgHistory) lookup(id, typ string) int {
 	if typ == "" {
-		return p.IDs[id]
+		return p.ids[id]
 	}
-	if t, ok := p.Types[typ]; ok {
+	if t, ok := p.types[typ]; ok {
 		return t[id]
 	}
 	return 0
 }
 
-// ReadHist reads the history of the Go stdlib
+// Function readHist reads the history of the Go stdlib
 // from the sequence of go1.*.txt files in the given directory.
 // The default directory,
 // which you get if dir is "",
 // is $GOROOT/api.
-func ReadHist(dir string) (History, error) {
+func readHist(dir string) (history, error) {
 	if dir == "" {
 		dir = filepath.Join(goroot(), "api")
 	}
 
-	return ReadHistFS(os.DirFS(dir), ".")
+	return readHistFS(os.DirFS(dir), ".")
 }
 
 var apifilenameRegex = regexp.MustCompile(`^go1\.(\d+)\.txt$`)
 
-// ReadHistFS reads the history of the Go stdlib
+// Function readHistFS reads the history of the Go stdlib
 // from the sequence of go1.*.txt files
 // in the given directory within the given filesystem.
-func ReadHistFS(fsys fs.FS, dir string) (History, error) {
-	h := make(History)
+func readHistFS(fsys fs.FS, dir string) (history, error) {
+	h := make(history)
 
 	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
@@ -103,7 +103,7 @@ func goroot() string {
 	return runtime.GOROOT()
 }
 
-func readHistVersion(h History, fsys fs.FS, filename string, v int) error {
+func readHistVersion(h history, fsys fs.FS, filename string, v int) error {
 	f, err := fsys.Open(filename)
 	if err != nil {
 		return errors.Wrapf(err, "opening %s", filename)
@@ -148,30 +148,30 @@ func readHistVersion(h History, fsys fs.FS, filename string, v int) error {
 	return errors.Wrapf(sc.Err(), "scanning %s", filename)
 }
 
-func match2(h History, pkgpath, id string, v int) {
+func match2(h history, pkgpath, id string, v int) {
 	p, ok := h[pkgpath]
 	if !ok {
-		p = PkgHistory{
-			IDs:   make(map[string]int),
-			Types: make(map[string]map[string]int),
+		p = pkgHistory{
+			ids:   make(map[string]int),
+			types: make(map[string]map[string]int),
 		}
 		h[pkgpath] = p
 	}
-	if _, ok := p.IDs[id]; !ok {
-		p.IDs[id] = v
+	if _, ok := p.ids[id]; !ok {
+		p.ids[id] = v
 	}
 }
 
-func match3(h History, pkgpath, typ, id string, v int) {
+func match3(h history, pkgpath, typ, id string, v int) {
 	p, ok := h[pkgpath]
 	if !ok {
-		p = PkgHistory{IDs: make(map[string]int), Types: make(map[string]map[string]int)}
+		p = pkgHistory{ids: make(map[string]int), types: make(map[string]map[string]int)}
 		h[pkgpath] = p
 	}
-	t, ok := p.Types[typ]
+	t, ok := p.types[typ]
 	if !ok {
 		t = make(map[string]int)
-		p.Types[typ] = t
+		p.types[typ] = t
 	}
 	if _, ok := t[id]; !ok {
 		t[id] = v

@@ -1,8 +1,8 @@
 package mingo
 
 import (
-	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -10,62 +10,89 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/module"
 )
 
-func ScanDeps(ctx context.Context, f *modfile.File) (int, error) {
-	result := MinGoMinorVersion
-	for _, r := range f.Require {
-		depResult, err := ScanDep(ctx, r.Mod.Path, r.Mod.Version)
-		if err != nil {
-			return 0, errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
-		}
-		result = max(result, depResult)
+func (s *Scanner) scanDeps(gomodPath string) error {
+	gomodBytes, err := os.ReadFile(gomodPath)
+	if err != nil {
+		return errors.Wrapf(err, "reading go.mod at %s", gomodPath)
 	}
-	return result, nil
+
+	f, err := modfile.ParseLax(gomodPath, gomodBytes, nil)
+	if err != nil {
+		return errors.Wrapf(err, "parsing go.mod at %s", gomodPath)
+	}
+
+	for _, r := range f.Require {
+		if err := s.scanDep(r.Mod); err != nil {
+			return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
+		}
+	}
+
+	return nil
 }
 
 type modDownload struct {
 	Path, Version, GoMod string
 }
 
-func ScanDep(ctx context.Context, modpath, version string) (int, error) {
-	cmd := exec.CommandContext(ctx, "go", "mod", "download", "-json", modpath+"@"+version)
+func (s *Scanner) scanDep(mv module.Version) error {
+	cmd := exec.Command("go", "mod", "download", "-json", mv.Path+"@"+mv.Version)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return 0, errors.Wrapf(err, "creating stdout pipe for download of %s", modpath)
+		return errors.Wrapf(err, "creating stdout pipe for download of %s", mv.Path)
 	}
 	if err := cmd.Start(); err != nil {
-		return 0, errors.Wrapf(err, "starting download of %s", modpath)
+		return errors.Wrapf(err, "starting download of %s", mv.Path)
 	}
 	defer cmd.Wait()
 
 	var download modDownload
 	if err := json.NewDecoder(stdout).Decode(&download); err != nil {
-		return 0, errors.Wrapf(err, "decoding download of %s", modpath)
+		return errors.Wrapf(err, "decoding download of %s", mv.Path)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return 0, errors.Wrapf(err, "waiting for download of %s", modpath)
+		return errors.Wrapf(err, "waiting for download of %s", mv.Path)
 	}
 
 	gomodBytes, err := os.ReadFile(download.GoMod)
 	if err != nil {
-		return 0, errors.Wrapf(err, "reading go.mod of %s", modpath)
+		return errors.Wrapf(err, "reading go.mod of %s", mv.Path)
 	}
 	parsed, err := modfile.ParseLax(download.GoMod, gomodBytes, nil)
 	if err != nil {
-		return 0, errors.Wrapf(err, "parsing go.mod of %s", modpath)
+		return errors.Wrapf(err, "parsing go.mod of %s", mv.Path)
 	}
 	if parsed.Go == nil {
-		return 0, errors.Errorf("go.mod of %s has no go version", modpath)
+		return errors.Errorf("go.mod of %s has no go version", mv.Path)
 	}
 	parts := strings.SplitN(parsed.Go.Version, ".", 3)
 	if len(parts) < 2 {
-		return 0, errors.Errorf("go.mod of %s has invalid go version %s", modpath, parsed.Go.Version)
+		return errors.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
 	}
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return 0, errors.Errorf("go.mod of %s has invalid go version %s", modpath, parsed.Go.Version)
+		return errors.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
 	}
-	return max(MinGoMinorVersion, minor), nil
+
+	dr := depResult{
+		version:    minor,
+		modpath:    mv.Path,
+		modversion: mv.Version,
+	}
+
+	s.greater(dr)
+	return nil
+}
+
+type depResult struct {
+	version             int
+	modpath, modversion string
+}
+
+func (r depResult) Version() int { return r.version }
+func (r depResult) String() string {
+	return fmt.Sprintf("%s@%s declares Go version 1.%d", r.modpath, r.modversion, r.version)
 }

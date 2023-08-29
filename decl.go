@@ -20,7 +20,7 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 	if err := p.fieldList(decl.Recv); err != nil {
 		return errors.Wrapf(err, "scanning receiver for func %s", decl.Name.Name)
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 
@@ -31,7 +31,7 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 			pos:     p.fset.Position(decl.Pos()),
 			desc:    "generic func decl",
 		}
-		if p.greater(declResult) {
+		if p.s.greater(declResult) {
 			return nil
 		}
 	}
@@ -39,14 +39,14 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 	if err := p.fieldList(decl.Type.Params); err != nil {
 		return errors.Wrapf(err, "scanning params for func %s", decl.Name.Name)
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 
 	if err := p.fieldList(decl.Type.Results); err != nil {
 		return errors.Wrapf(err, "scanning results for func %s", decl.Name.Name)
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 
@@ -54,7 +54,7 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 		if err := p.stmt(stmt); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -71,7 +71,7 @@ func (p *pkgScanner) fieldList(list *ast.FieldList) error {
 		if err := p.field(field); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -88,7 +88,7 @@ func (p *pkgScanner) genDecl(decl *ast.GenDecl) error {
 		if err := p.spec(spec); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -110,7 +110,7 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) error {
 		if err := p.expr(value); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -127,7 +127,7 @@ func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) error {
 			pos:     p.fset.Position(spec.Pos()),
 			desc:    "generic type decl",
 		}
-		if p.greater(declResult) {
+		if p.s.greater(declResult) {
 			return nil
 		}
 	}

@@ -68,7 +68,7 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 			pos:     p.fset.Position(ident.Pos()),
 			desc:    `"any" builtin`,
 		}
-		p.greater(idResult)
+		p.s.greater(idResult)
 		return nil
 	}
 	obj, ok := p.info.Uses[ident]
@@ -86,7 +86,7 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 			pos:     p.fset.Position(ident.Pos()),
 			desc:    fmt.Sprintf(`"%s".%s`, pkgpath, ident.Name),
 		}
-		p.greater(idResult)
+		p.s.greater(idResult)
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 
@@ -129,7 +129,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    fmt.Sprintf(`"%s".%s`, pkgpath, expr.Sel.Name),
 			}
-			p.greater(selResult)
+			p.s.greater(selResult)
 		}
 		return nil
 	}
@@ -164,7 +164,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
 		pos:     p.fset.Position(expr.Pos()),
 		desc:    fmt.Sprintf(`"%s".%s.%s`, pkgpath, typestr, expr.Sel.Name),
 	}
-	p.greater(selResult)
+	p.s.greater(selResult)
 	return nil
 }
 
@@ -172,7 +172,7 @@ func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(expr.Index)
@@ -182,14 +182,14 @@ func (p *pkgScanner) indexListExpr(expr *ast.IndexListExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	for _, index := range expr.Indices {
 		if err := p.expr(index); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -200,19 +200,19 @@ func (p *pkgScanner) sliceExpr(expr *ast.SliceExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.expr(expr.Low); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	if err := p.expr(expr.High); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(expr.Max)
@@ -222,7 +222,7 @@ func (p *pkgScanner) typeAssertExpr(expr *ast.TypeAssertExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(expr.Type)
@@ -244,7 +244,7 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 	if err := p.expr(expr.Fun); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 
@@ -252,7 +252,7 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 		if err := p.expr(arg); err != nil {
 			return err
 		}
-		if p.result.Version() == MaxGoMinorVersion {
+		if p.s.result.Version() == MaxGoMinorVersion {
 			return nil
 		}
 	}
@@ -279,7 +279,7 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    fmt.Sprintf("conversion from slice to array"),
 			}
-			p.greater(convResult)
+			p.s.greater(convResult)
 			return nil
 		}
 		if ptr, ok := funtyp.(*types.Pointer); ok {
@@ -290,7 +290,7 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 					pos:     p.fset.Position(expr.Pos()),
 					desc:    fmt.Sprintf("conversion from slice to array pointer"),
 				}
-				p.greater(convResult)
+				p.s.greater(convResult)
 				return nil
 			}
 		}
@@ -311,7 +311,7 @@ func (p *pkgScanner) builtinCall(expr *ast.CallExpr) error {
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    fmt.Sprintf("use of %s builtin", id.Name),
 		}
-		p.greater(result)
+		p.s.greater(result)
 	}
 	return nil
 }
@@ -339,7 +339,7 @@ func (p *pkgScanner) binaryExpr(expr *ast.BinaryExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(expr.Y)
@@ -349,7 +349,7 @@ func (p *pkgScanner) keyValueExpr(expr *ast.KeyValueExpr) error {
 	if err := p.expr(expr.Key); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(expr.Value)
@@ -359,7 +359,7 @@ func (p *pkgScanner) arrayType(expr *ast.ArrayType) error {
 	if err := p.expr(expr.Len); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(expr.Elt)
@@ -376,7 +376,7 @@ func (p *pkgScanner) funcType(expr *ast.FuncType) error {
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    fmt.Sprintf("generic function type"),
 		}
-		if p.greater(result) {
+		if p.s.greater(result) {
 			return nil
 		}
 	}
@@ -384,7 +384,7 @@ func (p *pkgScanner) funcType(expr *ast.FuncType) error {
 	if err := p.fieldList(expr.Params); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.fieldList(expr.Results)
@@ -399,7 +399,7 @@ func (p *pkgScanner) mapType(expr *ast.MapType) error {
 	if err := p.expr(expr.Key); err != nil {
 		return err
 	}
-	if p.result.Version() == MaxGoMinorVersion {
+	if p.s.result.Version() == MaxGoMinorVersion {
 		return nil
 	}
 	return p.expr(expr.Value)
