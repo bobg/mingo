@@ -20,7 +20,7 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 	if err := p.fieldList(decl.Recv); err != nil {
 		return errors.Wrapf(err, "scanning receiver for func %s", decl.Name.Name)
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 
@@ -39,27 +39,18 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 	if err := p.fieldList(decl.Type.Params); err != nil {
 		return errors.Wrapf(err, "scanning params for func %s", decl.Name.Name)
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 
 	if err := p.fieldList(decl.Type.Results); err != nil {
 		return errors.Wrapf(err, "scanning results for func %s", decl.Name.Name)
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 
-	for _, stmt := range decl.Body.List {
-		if err := p.stmt(stmt); err != nil {
-			return err
-		}
-		if p.s.result.Version() == MaxGoMinorVersion {
-			return nil
-		}
-	}
-
-	return nil
+	return p.funcBody(decl.Body)
 }
 
 func (p *pkgScanner) fieldList(list *ast.FieldList) error {
@@ -71,7 +62,7 @@ func (p *pkgScanner) fieldList(list *ast.FieldList) error {
 		if err := p.field(field); err != nil {
 			return err
 		}
-		if p.s.result.Version() == MaxGoMinorVersion {
+		if p.isMax() {
 			return nil
 		}
 	}
@@ -90,7 +81,7 @@ func (p *pkgScanner) genDecl(decl *ast.GenDecl) error {
 		if err := p.spec(spec); err != nil {
 			return err
 		}
-		if p.s.result.Version() == MaxGoMinorVersion {
+		if p.isMax() {
 			return nil
 		}
 	}
@@ -112,7 +103,7 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) error {
 		if err := p.expr(value); err != nil {
 			return err
 		}
-		if p.s.result.Version() == MaxGoMinorVersion {
+		if p.isMax() {
 			return nil
 		}
 	}

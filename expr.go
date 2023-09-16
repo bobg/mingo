@@ -140,11 +140,56 @@ func (p *pkgScanner) funcLit(lit *ast.FuncLit) error {
 		}
 		p.s.greater(result)
 	}
+
+	return p.funcBody(lit.Body)
+}
+
+func (p *pkgScanner) funcBody(body *ast.BlockStmt) error {
+	if len(body.List) == 0 {
+		return nil
+	}
+
+	for _, stmt := range body.List {
+		if err := p.stmt(stmt); err != nil {
+			return err
+		}
+		if p.isMax() {
+			return nil
+		}
+	}
+
+	last := body.List[len(body.List)-1]
+	if _, ok := last.(*ast.ReturnStmt); ok {
+		return nil
+	}
+	p.s.greater(posResult{
+		version: 1,
+		pos:     p.fset.Position(last.End()),
+		desc:    "function body with no final return statement",
+	})
+
 	return nil
 }
 
 func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) error {
-	// xxx map literals with composite-type keys do not require an explicit type for those keys as of Go 1.5
+	for _, elt := range lit.Elts {
+		if err := p.expr(elt); err != nil {
+			return err
+		}
+		if p.isMax() {
+			return nil
+		}
+
+		if kv, ok := elt.(*ast.KeyValueExpr); ok {
+			if ck, ok := kv.Key.(*ast.CompositeLit); ok && ck.Type == nil {
+				p.s.greater(posResult{
+					version: 5,
+					pos:     p.fset.Position(ck.Pos()),
+					desc:    "composite literal with composite-type key and no explicit type",
+				})
+			}
+		}
+	}
 
 	return nil
 }
@@ -157,7 +202,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 
@@ -218,7 +263,7 @@ func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.expr(expr.Index)
@@ -228,14 +273,14 @@ func (p *pkgScanner) indexListExpr(expr *ast.IndexListExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	for _, index := range expr.Indices {
 		if err := p.expr(index); err != nil {
 			return err
 		}
-		if p.s.result.Version() == MaxGoMinorVersion {
+		if p.isMax() {
 			return nil
 		}
 	}
@@ -257,19 +302,19 @@ func (p *pkgScanner) sliceExpr(expr *ast.SliceExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	if err := p.expr(expr.Low); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	if err := p.expr(expr.High); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.expr(expr.Max)
@@ -279,7 +324,7 @@ func (p *pkgScanner) typeAssertExpr(expr *ast.TypeAssertExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.expr(expr.Type)
@@ -301,7 +346,7 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 	if err := p.expr(expr.Fun); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 
@@ -309,7 +354,7 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 		if err := p.expr(arg); err != nil {
 			return err
 		}
-		if p.s.result.Version() == MaxGoMinorVersion {
+		if p.isMax() {
 			return nil
 		}
 	}
@@ -400,7 +445,7 @@ func (p *pkgScanner) binaryExpr(expr *ast.BinaryExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.expr(expr.Y)
@@ -410,7 +455,7 @@ func (p *pkgScanner) keyValueExpr(expr *ast.KeyValueExpr) error {
 	if err := p.expr(expr.Key); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.expr(expr.Value)
@@ -420,7 +465,7 @@ func (p *pkgScanner) arrayType(expr *ast.ArrayType) error {
 	if err := p.expr(expr.Len); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.expr(expr.Elt)
@@ -445,7 +490,7 @@ func (p *pkgScanner) funcType(expr *ast.FuncType) error {
 	if err := p.fieldList(expr.Params); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.fieldList(expr.Results)
@@ -460,7 +505,7 @@ func (p *pkgScanner) mapType(expr *ast.MapType) error {
 	if err := p.expr(expr.Key); err != nil {
 		return err
 	}
-	if p.s.result.Version() == MaxGoMinorVersion {
+	if p.isMax() {
 		return nil
 	}
 	return p.expr(expr.Value)

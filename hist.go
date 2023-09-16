@@ -18,10 +18,13 @@ import (
 // Type history is the history of the Go stdlib,
 // as parsed from the files in $GOROOT/api.
 // It maps a Go stdlib package names to their individual histories.
-type history map[string]pkgHistory
+type history struct {
+	pkgs map[string]pkgHistory // maps package paths to package histories
+	max  int                   // the highest minor version of Go seen
+}
 
 func (h history) lookup(pkgpath, id, typ string) int {
-	if p, ok := h[pkgpath]; ok {
+	if p, ok := h.pkgs[pkgpath]; ok {
 		return p.lookup(id, typ)
 	}
 	return 0
@@ -55,7 +58,7 @@ func (p pkgHistory) lookup(id, typ string) int {
 // The default directory,
 // which you get if dir is "",
 // is $GOROOT/api.
-func readHist(dir string) (history, error) {
+func readHist(dir string) (*history, error) {
 	if dir == "" {
 		dir = filepath.Join(goroot(), "api")
 	}
@@ -68,8 +71,10 @@ var apifilenameRegex = regexp.MustCompile(`^go1\.(\d+)\.txt$`)
 // Function readHistFS reads the history of the Go stdlib
 // from the sequence of go1.*.txt files
 // in the given directory within the given filesystem.
-func readHistFS(fsys fs.FS, dir string) (history, error) {
-	h := make(history)
+func readHistFS(fsys fs.FS, dir string) (*history, error) {
+	h := &history{
+		pkgs: make(map[string]pkgHistory),
+	}
 
 	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
@@ -88,6 +93,9 @@ func readHistFS(fsys fs.FS, dir string) (history, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "parsing version from filename %s", base)
 		}
+		if v > h.max {
+			h.max = v
+		}
 		if err = readHistVersion(h, fsys, filepath.Join(dir, base), v); err != nil {
 			return nil, errors.Wrapf(err, "reading version %d history", v)
 		}
@@ -103,7 +111,7 @@ func goroot() string {
 	return runtime.GOROOT()
 }
 
-func readHistVersion(h history, fsys fs.FS, filename string, v int) error {
+func readHistVersion(h *history, fsys fs.FS, filename string, v int) error {
 	f, err := fsys.Open(filename)
 	if err != nil {
 		return errors.Wrapf(err, "opening %s", filename)
@@ -148,25 +156,25 @@ func readHistVersion(h history, fsys fs.FS, filename string, v int) error {
 	return errors.Wrapf(sc.Err(), "scanning %s", filename)
 }
 
-func match2(h history, pkgpath, id string, v int) {
-	p, ok := h[pkgpath]
+func match2(h *history, pkgpath, id string, v int) {
+	p, ok := h.pkgs[pkgpath]
 	if !ok {
 		p = pkgHistory{
 			ids:   make(map[string]int),
 			types: make(map[string]map[string]int),
 		}
-		h[pkgpath] = p
+		h.pkgs[pkgpath] = p
 	}
 	if _, ok := p.ids[id]; !ok {
 		p.ids[id] = v
 	}
 }
 
-func match3(h history, pkgpath, typ, id string, v int) {
-	p, ok := h[pkgpath]
+func match3(h *history, pkgpath, typ, id string, v int) {
+	p, ok := h.pkgs[pkgpath]
 	if !ok {
 		p = pkgHistory{ids: make(map[string]int), types: make(map[string]map[string]int)}
-		h[pkgpath] = p
+		h.pkgs[pkgpath] = p
 	}
 	t, ok := p.types[typ]
 	if !ok {

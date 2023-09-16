@@ -8,11 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	MinGoMinorVersion = 13
-	MaxGoMinorVersion = 21
-)
-
 func (s *Scanner) lookup(pkgpath, name, typ string) int {
 	return s.h.lookup(pkgpath, name, typ)
 }

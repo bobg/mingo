@@ -20,9 +20,13 @@ func (p *pkgScanner) file(file *ast.File) error {
 		if err := p.decl(decl); err != nil {
 			return errors.Wrapf(err, "scanning decl at %s", p.fset.Position(decl.Pos()))
 		}
-		if p.s.result.Version() == MaxGoMinorVersion {
+		if p.isMax() {
 			break
 		}
 	}
 	return nil
+}
+
+func (p *pkgScanner) isMax() bool {
+	return p.s.isMax()
 }

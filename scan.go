@@ -3,6 +3,9 @@ package mingo
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -16,7 +19,7 @@ type Scanner struct {
 	Tests    bool
 	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
-	h      history
+	h      *history
 	result Result
 }
 
@@ -49,7 +52,7 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 		if err := s.scanPackage(pkg); err != nil {
 			return nil, errors.Wrapf(err, "scanning package %s", pkg.PkgPath)
 		}
-		if s.result.Version() == MaxGoMinorVersion {
+		if s.isMax() {
 			break
 		}
 	}
@@ -76,7 +79,7 @@ func (s *Scanner) scanPackage(pkg *packages.Package) error {
 		if err := p.file(file); err != nil {
 			return errors.Wrapf(err, "scanning file %s", filename)
 		}
-		if p.s.result.Version() == MaxGoMinorVersion {
+		if p.isMax() {
 			break
 		}
 	}
@@ -99,8 +102,10 @@ func (s *Scanner) greater(result Result) bool {
 		s.result = result
 		s.verbosef("%s", result)
 	}
-	return s.result.Version() == MaxGoMinorVersion
+	return s.isMax()
 }
+
+var goverRegex = regexp.MustCompile(`^go(\d+)\.(\d+)`)
 
 func (s *Scanner) ensureHistory() error {
 	if s.h != nil {
@@ -110,6 +115,35 @@ func (s *Scanner) ensureHistory() error {
 	if err != nil {
 		return err
 	}
+
 	s.h = h
+
+	gover := runtime.Version()
+	m := goverRegex.FindStringSubmatch(gover)
+	if len(m) == 0 {
+		return nil
+	}
+
+	major, err := strconv.Atoi(m[1])
+	if err != nil {
+		return errors.Wrapf(err, "parsing major version from runtime version %s", gover)
+	}
+	if major != 1 {
+		return fmt.Errorf("unexpected Go major version %d", major)
+	}
+
+	minor, err := strconv.Atoi(m[2])
+	if err != nil {
+		return errors.Wrapf(err, "parsing minor version from runtime version %s", gover)
+	}
+	if minor != s.h.max {
+		return fmt.Errorf("runtime Go version 1.%d does not match history max 1.%d (reading from %s)", minor, s.h.max, s.HistDir)
+	}
+
 	return nil
+}
+
+// Prereq: e.ensureHistory has been called.
+func (s *Scanner) isMax() bool {
+	return s.result.Version() >= s.h.max
 }
