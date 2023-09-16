@@ -84,6 +84,8 @@ func (p *pkgScanner) field(field *ast.Field) error {
 }
 
 func (p *pkgScanner) genDecl(decl *ast.GenDecl) error {
+	// Type aliases allowed as of Go 1.9
+
 	for _, spec := range decl.Specs {
 		if err := p.spec(spec); err != nil {
 			return err

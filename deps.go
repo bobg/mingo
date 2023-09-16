@@ -25,6 +25,9 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 	}
 
 	for _, r := range f.Require {
+		if r.Indirect && !s.Indirect {
+			continue
+		}
 		if err := s.scanDep(r.Mod); err != nil {
 			return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
 		}
@@ -43,6 +46,7 @@ func (s *Scanner) scanDep(mv module.Version) error {
 	if err != nil {
 		return errors.Wrapf(err, "creating stdout pipe for download of %s", mv.Path)
 	}
+
 	if err := cmd.Start(); err != nil {
 		return errors.Wrapf(err, "starting download of %s", mv.Path)
 	}
@@ -66,7 +70,8 @@ func (s *Scanner) scanDep(mv module.Version) error {
 		return errors.Wrapf(err, "parsing go.mod of %s", mv.Path)
 	}
 	if parsed.Go == nil {
-		return errors.Errorf("go.mod of %s has no go version", mv.Path)
+		// Probably a pre-Go 1.11 module.
+		return nil
 	}
 	parts := strings.SplitN(parsed.Go.Version, ".", 3)
 	if len(parts) < 2 {

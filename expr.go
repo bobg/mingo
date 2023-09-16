@@ -3,7 +3,9 @@ package mingo
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/types"
+	"strings"
 )
 
 func (p *pkgScanner) expr(expr ast.Expr) error {
@@ -91,17 +93,59 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 	return nil
 }
 
-// xxx check for expanded numeric-literal syntax
 func (p *pkgScanner) basicLit(lit *ast.BasicLit) error {
+	switch lit.Kind {
+	case token.CHAR, token.STRING:
+		return nil
+	}
+
+	// Maybe...
+	numResult := posResult{
+		version: 13,
+		pos:     p.fset.Position(lit.Pos()),
+		desc:    "expanded numeric literal",
+	}
+
+	// Does this numeric literal use expanded Go 1.13 syntax?
+	if strings.Contains(lit.Value, "_") {
+		p.s.greater(numResult)
+		return nil
+	}
+	if strings.HasPrefix(lit.Value, "0b") || strings.HasPrefix(lit.Value, "0B") {
+		p.s.greater(numResult)
+		return nil
+	}
+	if strings.HasPrefix(lit.Value, "0o") || strings.HasPrefix(lit.Value, "0O") {
+		p.s.greater(numResult)
+		return nil
+	}
+	if strings.HasPrefix(lit.Value, "0x") || strings.HasPrefix(lit.Value, "0X") {
+		p.s.greater(numResult)
+		return nil
+	}
+	if strings.HasSuffix(lit.Value, "i") {
+		p.s.greater(numResult)
+		return nil
+	}
+
 	return nil
 }
 
-// xxx check for non-empty type params
 func (p *pkgScanner) funcLit(lit *ast.FuncLit) error {
+	if lit.Type.TypeParams != nil && len(lit.Type.TypeParams.List) > 0 {
+		result := posResult{
+			version: 18,
+			pos:     p.fset.Position(lit.Pos()),
+			desc:    "generic function literal",
+		}
+		p.s.greater(result)
+	}
 	return nil
 }
 
 func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) error {
+	// xxx map literals with composite-type keys do not require an explicit type for those keys as of Go 1.5
+
 	return nil
 }
 
@@ -118,6 +162,8 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
 	}
 
 	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
+		// xxx method values (e.g. w.Write) introduced in 1.1
+
 		pkg := obj.Pkg()
 		if pkg == nil {
 			return nil
@@ -197,6 +243,17 @@ func (p *pkgScanner) indexListExpr(expr *ast.IndexListExpr) error {
 }
 
 func (p *pkgScanner) sliceExpr(expr *ast.SliceExpr) error {
+	if expr.Slice3 {
+		result := posResult{
+			version: 5,
+			pos:     p.fset.Position(expr.Pos()),
+			desc:    "slice expression with 3 indices",
+		}
+		if p.s.greater(result) {
+			return nil
+		}
+	}
+
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
@@ -262,6 +319,8 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 
 // expr.Fun is a type expression, and len(expr.Args) == 1.
 func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue) error {
+	// xxx conversion from struct A to struct B, when struct tags differ, is allowed as of Go 1.8
+
 	argtv, ok := p.info.Types[expr.Args[0]]
 	if !ok {
 		return fmt.Errorf("no type info for type conversion argument at %s", p.fset.Position(expr.Args[0].Pos()))
@@ -277,7 +336,7 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 			convResult := posResult{
 				version: 20,
 				pos:     p.fset.Position(expr.Pos()),
-				desc:    fmt.Sprintf("conversion from slice to array"),
+				desc:    "conversion from slice to array",
 			}
 			p.s.greater(convResult)
 			return nil
@@ -288,7 +347,7 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 				convResult := posResult{
 					version: 17,
 					pos:     p.fset.Position(expr.Pos()),
-					desc:    fmt.Sprintf("conversion from slice to array pointer"),
+					desc:    "conversion from slice to array pointer",
 				}
 				p.s.greater(convResult)
 				return nil
@@ -336,6 +395,8 @@ func (p *pkgScanner) unaryExpr(expr *ast.UnaryExpr) error {
 }
 
 func (p *pkgScanner) binaryExpr(expr *ast.BinaryExpr) error {
+	// xxx Bit-shift nbits value no longer required to be unsigned in Go 1.13
+
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
@@ -374,7 +435,7 @@ func (p *pkgScanner) funcType(expr *ast.FuncType) error {
 		result := posResult{
 			version: 18,
 			pos:     p.fset.Position(expr.Pos()),
-			desc:    fmt.Sprintf("generic function type"),
+			desc:    "generic function type",
 		}
 		if p.s.greater(result) {
 			return nil

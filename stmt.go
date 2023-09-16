@@ -123,6 +123,8 @@ func (p *pkgScanner) returnStmt(stmt *ast.ReturnStmt) error {
 }
 
 func (p *pkgScanner) blockStmt(stmt *ast.BlockStmt) error {
+	// xxx function body with no final return statement allowed as of Go 1.1
+
 	for _, stmt := range stmt.List {
 		if err := p.stmt(stmt); err != nil {
 			return err
@@ -225,6 +227,8 @@ func (p *pkgScanner) selectStmt(stmt *ast.SelectStmt) error {
 }
 
 func (p *pkgScanner) forStmt(stmt *ast.ForStmt) error {
+	// xxx variable-free "for range" statement allowed as of Go 1.4
+
 	if err := p.stmt(stmt.Init); err != nil {
 		return err
 	}

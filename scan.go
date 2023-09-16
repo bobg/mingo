@@ -10,10 +10,11 @@ import (
 )
 
 type Scanner struct {
-	Deps    bool // include dependencies
-	Verbose bool // be verbose
-	Tests   bool
-	HistDir string // find Go stdlib history in this directory (default: $GOROOT/api)
+	Deps     bool // include dependencies
+	Indirect bool // with Deps, include indirect dependencies
+	Verbose  bool // be verbose
+	Tests    bool
+	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
 	h      history
 	result Result
@@ -25,7 +26,7 @@ func (s *Scanner) ScanDir(dir string) (Result, error) {
 	}
 
 	conf := &packages.Config{
-		Mode:  packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
+		Mode:  packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule,
 		Dir:   dir,
 		Tests: s.Tests,
 	}
