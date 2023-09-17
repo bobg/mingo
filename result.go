@@ -9,7 +9,7 @@ import (
 
 // Result is the type of a result returned by [Scanner.ScanDir] and [Scanner.ScanPackages].
 type Result interface {
-	Version() int   // The minor version of Go 1.x.
+	Version() int   // The lowest minor version of Go 1.x required.
 	String() string // A descriptive string explaining the result.
 }
 

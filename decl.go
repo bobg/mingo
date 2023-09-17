@@ -75,8 +75,6 @@ func (p *pkgScanner) field(field *ast.Field) error {
 }
 
 func (p *pkgScanner) genDecl(decl *ast.GenDecl) error {
-	// Type aliases allowed as of Go 1.9
-
 	for _, spec := range decl.Specs {
 		if err := p.spec(spec); err != nil {
 			return err
@@ -99,6 +97,12 @@ func (p *pkgScanner) spec(spec ast.Spec) error {
 }
 
 func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) error {
+	if err := p.expr(spec.Type); err != nil {
+		return err
+	}
+	if p.isMax() {
+		return nil
+	}
 	for _, value := range spec.Values {
 		if err := p.expr(value); err != nil {
 			return err
@@ -113,6 +117,14 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) error {
 // xxx check for interface definition with overlapping method sets,
 // allowed as of Go 1.14.
 func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) error {
+	if spec.Assign.IsValid() {
+		p.s.greater(posResult{
+			version: 9,
+			pos:     p.fset.Position(spec.Pos()),
+			desc:    "type alias",
+		})
+	}
+
 	// Generics are supported in Go 1.18 and later.
 	if spec.TypeParams != nil && len(spec.TypeParams.List) > 0 {
 		declResult := posResult{

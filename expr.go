@@ -68,14 +68,17 @@ func (p *pkgScanner) exprHelper(expr ast.Expr, isCallFun bool) error {
 }
 
 func (p *pkgScanner) ident(ident *ast.Ident) error {
-	if tv, ok := p.info.Types[ident]; ok && tv.IsBuiltin() && ident.Name == "any" {
-		idResult := posResult{
-			version: 18,
-			pos:     p.fset.Position(ident.Pos()),
-			desc:    `"any" builtin`,
+	if tv, ok := p.info.Types[ident]; ok && tv.IsType() && ident.Name == "any" {
+		// It's a type named "any," but is it actually the "any" type?
+		if intf, ok := tv.Type.Underlying().(*types.Interface); ok && intf.Empty() {
+			idResult := posResult{
+				version: 18,
+				pos:     p.fset.Position(ident.Pos()),
+				desc:    `"any" builtin`,
+			}
+			p.s.greater(idResult)
+			return nil
 		}
-		p.s.greater(idResult)
-		return nil
 	}
 	obj, ok := p.info.Uses[ident]
 	if !ok || obj == nil {
@@ -212,7 +215,6 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) error 
 
 	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
 		if _, ok := obj.Type().(*types.Signature); ok && !isCallFun {
-			// Method values (e.g. w.Write) introduced in 1.1.
 			p.s.greater(posResult{
 				version: 1,
 				pos:     p.fset.Position(expr.Pos()),
