@@ -9,6 +9,10 @@ import (
 )
 
 func (p *pkgScanner) expr(expr ast.Expr) error {
+	return p.exprHelper(expr, false)
+}
+
+func (p *pkgScanner) exprHelper(expr ast.Expr, isCallFun bool) error {
 	if expr == nil {
 		return nil
 	}
@@ -27,7 +31,7 @@ func (p *pkgScanner) expr(expr ast.Expr) error {
 	case *ast.ParenExpr:
 		return p.parenExpr(expr)
 	case *ast.SelectorExpr:
-		return p.selectorExpr(expr)
+		return p.selectorExpr(expr, isCallFun)
 	case *ast.IndexExpr:
 		return p.indexExpr(expr)
 	case *ast.IndexListExpr:
@@ -198,7 +202,7 @@ func (p *pkgScanner) parenExpr(expr *ast.ParenExpr) error {
 	return p.expr(expr.X)
 }
 
-func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
+func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
 	}
@@ -207,7 +211,14 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr) error {
 	}
 
 	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
-		// xxx method values (e.g. w.Write) introduced in 1.1
+		if _, ok := obj.Type().(*types.Signature); ok && !isCallFun {
+			// Method values (e.g. w.Write) introduced in 1.1.
+			p.s.greater(posResult{
+				version: 1,
+				pos:     p.fset.Position(expr.Pos()),
+				desc:    "method used as value",
+			})
+		}
 
 		pkg := obj.Pkg()
 		if pkg == nil {
@@ -343,7 +354,7 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 		return p.builtinCall(expr)
 	}
 
-	if err := p.expr(expr.Fun); err != nil {
+	if err := p.exprHelper(expr.Fun, true); err != nil {
 		return err
 	}
 	if p.isMax() {
@@ -364,18 +375,30 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 
 // expr.Fun is a type expression, and len(expr.Args) == 1.
 func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue) error {
-	// xxx conversion from struct A to struct B, when struct tags differ, is allowed as of Go 1.8
-
 	argtv, ok := p.info.Types[expr.Args[0]]
 	if !ok {
 		return fmt.Errorf("no type info for type conversion argument at %s", p.fset.Position(expr.Args[0].Pos()))
 	}
 
-	// Is this a conversion from slice to array or array pointer?
 	var (
 		funtyp = funtv.Type.Underlying()
 		argtyp = argtv.Type.Underlying()
 	)
+
+	// Is this a conversion from struct A to struct B, which are the same except for differing struct tags?
+	if argStruct, ok := argtyp.(*types.Struct); ok {
+		if funStruct, ok := funtyp.(*types.Struct); ok {
+			if differingTags(argStruct, funStruct) {
+				p.s.greater(posResult{
+					version: 8,
+					pos:     p.fset.Position(expr.Pos()),
+					desc:    "conversion between structs with differing struct tags",
+				})
+			}
+		}
+	}
+
+	// Is this a conversion from slice to array or array pointer?
 	if _, ok := argtyp.(*types.Slice); ok {
 		if _, ok := funtyp.(*types.Array); ok {
 			convResult := posResult{
@@ -513,4 +536,17 @@ func (p *pkgScanner) mapType(expr *ast.MapType) error {
 
 func (p *pkgScanner) chanType(expr *ast.ChanType) error {
 	return p.expr(expr.Value)
+}
+
+func differingTags(a, b *types.Struct) bool {
+	n := a.NumFields()
+	if n != b.NumFields() {
+		return false // sic - we don't care if the fields differ, only whether the tags differ
+	}
+	for i := 0; i < n; i++ {
+		if a.Tag(i) != b.Tag(i) {
+			return true
+		}
+	}
+	return false
 }
