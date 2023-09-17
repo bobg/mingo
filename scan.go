@@ -8,21 +8,23 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/bobg/errors"
 	"golang.org/x/tools/go/packages"
 )
 
+// Scanner scans a directory or set of packages to determine the lowest-numbered version of Go 1.x that can build them.
 type Scanner struct {
-	Deps     bool // include dependencies
-	Indirect bool // with Deps, include indirect dependencies
-	Verbose  bool // be verbose
-	Tests    bool
+	Deps     bool   // include dependencies
+	Indirect bool   // with Deps, include indirect dependencies
+	Verbose  bool   // be verbose
+	Tests    bool   // scan *_test.go files
 	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
 	h      *history
 	result Result
 }
 
+// ScanDir scans the module in a directory to determine the lowest-numbered version of Go 1.x that can build it.
 func (s *Scanner) ScanDir(dir string) (Result, error) {
 	if err := s.ensureHistory(); err != nil {
 		return nil, err
@@ -41,6 +43,7 @@ func (s *Scanner) ScanDir(dir string) (Result, error) {
 	return s.ScanPackages(pkgs)
 }
 
+// ScanPackages scans the given packages to determine the lowest-numbered version of Go 1.x that can build them.
 func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 	if err := s.ensureHistory(); err != nil {
 		return nil, err
@@ -49,6 +52,13 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 	s.result = intResult(0)
 
 	for _, pkg := range pkgs {
+		if len(pkg.Errors) > 0 {
+			var err error
+			for _, e := range pkg.Errors {
+				err = errors.Join(err, e)
+			}
+			return nil, errors.Wrapf(err, "loading package %s", pkg.PkgPath)
+		}
 		if err := s.scanPackage(pkg); err != nil {
 			return nil, errors.Wrapf(err, "scanning package %s", pkg.PkgPath)
 		}
@@ -85,6 +95,10 @@ func (s *Scanner) scanPackage(pkg *packages.Package) error {
 	}
 
 	return nil
+}
+
+func (s *Scanner) lookup(pkgpath, name, typ string) int {
+	return s.h.lookup(pkgpath, name, typ)
 }
 
 func (s *Scanner) verbosef(format string, args ...any) {

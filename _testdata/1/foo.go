@@ -1,7 +1,5 @@
-package foo
-
 func one() int {
-	if true {
+	for {
 		return 17
 	}
 }

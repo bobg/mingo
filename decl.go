@@ -3,7 +3,7 @@ package mingo
 import (
 	"go/ast"
 
-	"github.com/pkg/errors"
+	"github.com/bobg/errors"
 )
 
 func (p *pkgScanner) decl(decl ast.Decl) error {

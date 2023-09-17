@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/bobg/errors"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )

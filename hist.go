@@ -10,8 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
-
+	"github.com/bobg/errors"
 	"github.com/bobg/go-generics/v3/slices"
 )
 

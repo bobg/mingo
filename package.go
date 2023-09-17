@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/pkg/errors"
+	"github.com/bobg/errors"
 )
 
 type pkgScanner struct {
