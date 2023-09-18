@@ -1,0 +1,2 @@
+This directory contains a snapshot of the go*.txt files from $GOROOT/api.
+Mingo falls back to this if it can't find $GOROOT/api at runtime.
