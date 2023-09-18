@@ -16,6 +16,7 @@ func main() {
 		deps     bool
 		indirect bool
 		tests    bool
+		check    bool
 	)
 	flag.StringVar(&dir, "dir", dir, "directory to scan")
 	flag.StringVar(&api, "api", "", "path to api directory")
@@ -23,6 +24,7 @@ func main() {
 	flag.BoolVar(&deps, "deps", false, "include dependencies")
 	flag.BoolVar(&indirect, "indirect", false, "with -deps, include indirect dependencies")
 	flag.BoolVar(&tests, "tests", false, "include tests")
+	flag.BoolVar(&check, "check", false, "produce an error if module declares wrong version in go.mod")
 	flag.Parse()
 
 	s := mingo.Scanner{
@@ -31,6 +33,7 @@ func main() {
 		Deps:     deps,
 		Indirect: indirect,
 		Tests:    tests,
+		Check:    check,
 	}
 
 	result, err := s.ScanDir(dir)
@@ -39,5 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println(result.Version())
+	if !check {
+		fmt.Println(result.Version())
+	}
 }

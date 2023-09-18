@@ -18,10 +18,21 @@ type Scanner struct {
 	Indirect bool   // with Deps, include indirect dependencies
 	Verbose  bool   // be verbose
 	Tests    bool   // scan *_test.go files
+	Check    bool   // produce an error if the module declares the wrong version in go.mod
 	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
 	h      *history
 	result Result
+}
+
+// VersionError is the error returned by [Scanner.ScanDir] or [Scanner.ScanPackages] when [Scanner.Check] is enabled.
+type VersionError struct {
+	Computed Result
+	Declared int
+}
+
+func (e VersionError) Error() string {
+	return fmt.Sprintf("go.mod declares version 1.%d but computed minimum is 1.%d [%s]", e.Declared, e.Computed.Version(), e.Computed)
 }
 
 // ScanDir scans the module in a directory to determine the lowest-numbered version of Go 1.x that can build it.
@@ -51,7 +62,7 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 
 	s.result = intResult(0)
 
-	for _, pkg := range pkgs {
+	for i, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
 			var err error
 			for _, e := range pkg.Errors {
@@ -59,6 +70,15 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 			}
 			return nil, errors.Wrapf(err, "loading package %s", pkg.PkgPath)
 		}
+
+		if pkg.Module == nil {
+			return nil, fmt.Errorf("package %s has no module", pkg.PkgPath)
+		}
+
+		if i > 0 && pkg.Module.Path != pkgs[0].Module.Path {
+			return nil, fmt.Errorf("multiple modules: %s and %s", pkgs[0].Module.Path, pkg.Module.Path)
+		}
+
 		if err := s.scanPackage(pkg); err != nil {
 			return nil, errors.Wrapf(err, "scanning package %s", pkg.PkgPath)
 		}
@@ -70,6 +90,24 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 	if s.Deps && len(pkgs) > 0 && pkgs[0].Module != nil {
 		if err := s.scanDeps(pkgs[0].Module.GoMod); err != nil {
 			return nil, errors.Wrap(err, "scanning dependencies")
+		}
+	}
+
+	if s.Check && len(pkgs) > 0 {
+		var declared int
+		parts := strings.SplitN(pkgs[0].Module.GoVersion, ".", 3)
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("go.mod has invalid go version %s", pkgs[0].Module.GoVersion)
+		}
+		declared, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return nil, fmt.Errorf("go.mod has invalid go version %s", pkgs[0].Module.GoVersion)
+		}
+		if s.result.Version() != declared {
+			return nil, VersionError{
+				Computed: s.result,
+				Declared: declared,
+			}
 		}
 	}
 
