@@ -1,0 +1,41 @@
+# Build builds the mingo binary.
+Build: !go.Binary
+  Dir: cmd/mingo
+
+# Test runs "go test" with coverage reporting.
+Test: !Command
+  Shell: go test -cover ./...
+  Stdout: $stdout
+
+# Lint runs an assortment of linters.
+Lint: !Seq
+  - !Command
+    Shell: go vet ./...
+    Stdout: $stdout
+  - !Command
+    Shell: staticcheck ./...
+    Stdout: $stdout
+  - !Command
+    Shell: revive ./...
+    Stdout: $stdout
+
+# Cover produces a test-coverage profile and opens it in a browser.
+Cover: !Deps
+  Pre: [CoverOut]
+  Post: !Command
+    Shell: go tool cover -html cover.out
+
+# CoverOut produces cover.out by running "go test -coverprofile".
+CoverOut: !Files
+  In: !go.Deps
+    Dir: cmd/mingo
+    Recursive: true
+    Tests: true
+  Out: [cover.out]
+  Target: !Command
+    Shell: go test -coverprofile cover.out ./...
+  Autoclean: true
+
+# Clean removes build-target output.
+Clean: !Clean
+  Autoclean: true
