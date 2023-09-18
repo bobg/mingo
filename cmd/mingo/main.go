@@ -1,3 +1,4 @@
+// Command mingo scans the packages in a Go module to determine the lowest-numbered version of Go that can build it.
 package main
 
 import (

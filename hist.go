@@ -2,6 +2,7 @@ package mingo
 
 import (
 	"bufio"
+	"embed"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -52,17 +53,38 @@ func (p pkgHistory) lookup(id, typ string) int {
 	return 0
 }
 
+//go:embed api
+var apiDir embed.FS
+
 // Function readHist reads the history of the Go stdlib
 // from the sequence of go1.*.txt files in the given directory.
 // The default directory,
 // which you get if dir is "",
-// is $GOROOT/api.
+// is $GOROOT/api,
+// or a builtin snapshot of that directory made at build time
+// if that can't be found.
 func readHist(dir string) (*history, error) {
+	var fsys fs.FS
+
 	if dir == "" {
 		dir = filepath.Join(goroot(), "api")
+		_, err := os.Stat(dir)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			fsys = apiDir
+			dir = "api"
+		case err != nil:
+			return nil, errors.Wrapf(err, "statting %s", dir)
+		default:
+			fsys = os.DirFS(dir)
+			dir = "."
+		}
+	} else {
+		fsys = os.DirFS(dir)
+		dir = "."
 	}
 
-	return readHistFS(os.DirFS(dir), ".")
+	return readHistFS(fsys, dir)
 }
 
 var apifilenameRegex = regexp.MustCompile(`^go1\.(\d+)\.txt$`)
