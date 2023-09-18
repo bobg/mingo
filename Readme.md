@@ -27,7 +27,9 @@ go get github.com/bobg/mingo@latest
 ## Usage
 
 For library usage please see
-[![Go Reference](https://pkg.go.dev/badge/github.com/bobg/mingo.svg)](https://pkg.go.dev/github.com/bobg/mingo).
+[the package doc](https://pkg.go.dev/github.com/bobg/mingo).
+
+Command-line usage:
 
 ```sh
 mingo [-v] [-deps] [-indirect] [-tests] [-check] [-api API] [DIR]
@@ -44,6 +46,10 @@ The flags and their meanings are:
   -tests     Include tests
   -check     Check that the module declares the right version of Go
   -api API   Find the Go API files in the directory API instead of the default $GOROOT/api
+
+Normal output is the lowest minor version of Go
+(the x in Go 1.x)
+that is safe to declare in the `go` directive of the module’s `go.mod` file.
 
 Running with `-check` causes mingo to exit with a 0 status code and no output
 if the module declares the correct version of Go,
@@ -73,6 +79,7 @@ One thing you should _not_ do is to routinely increase the version in your `go.m
 when a new version of Go comes out.
 When you do you risk breaking compatibility for some of your callers.
 
-Running mingo will tell you the lowest minor version number of Go
-(the x in Go 1.x)
-that is safe to include in your `go.mod`.
+Practically speaking there’s no point declaring a version of Go earlier than 1.11 in your `go.mod`,
+since [that’s the first version](https://go.dev/doc/go1.11#modules) that understood `go.mod` files.
+But mingo will still report earlier version numbers when warranted
+(somewhat pedantically).
