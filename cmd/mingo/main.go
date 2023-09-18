@@ -10,7 +10,6 @@ import (
 
 func main() {
 	var (
-		dir      = "."
 		api      string
 		verbose  bool
 		deps     bool
@@ -18,7 +17,6 @@ func main() {
 		tests    bool
 		check    bool
 	)
-	flag.StringVar(&dir, "dir", dir, "directory to scan")
 	flag.StringVar(&api, "api", "", "path to api directory")
 	flag.BoolVar(&verbose, "v", false, "be verbose")
 	flag.BoolVar(&deps, "deps", false, "include dependencies")
@@ -26,6 +24,11 @@ func main() {
 	flag.BoolVar(&tests, "tests", false, "include tests")
 	flag.BoolVar(&check, "check", false, "produce an error if module declares wrong version in go.mod")
 	flag.Parse()
+
+	dir := "."
+	if flag.NArg() > 0 {
+		dir = flag.Arg(0)
+	}
 
 	s := mingo.Scanner{
 		HistDir:  api,
