@@ -272,6 +272,9 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) error 
 	return nil
 }
 
+// xxx detect foo[bar, ...] where bar, ... are type args.
+// xxx do those parse as index/indexlist exprs?
+
 func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) error {
 	if err := p.expr(expr.X); err != nil {
 		return err
@@ -521,9 +524,61 @@ func (p *pkgScanner) funcType(expr *ast.FuncType) error {
 	return p.fieldList(expr.Results)
 }
 
-// xxx look for types in the field list; e.g. `interface { int8 | int16 | int32 | int64 }`
 func (p *pkgScanner) interfaceType(expr *ast.InterfaceType) error {
+	if tv, ok := p.info.Types[expr]; ok {
+		if intf, ok := tv.Type.(*types.Interface); ok {
+			p.checkInterfaceOverlaps(intf, expr.Pos())
+
+			if !intf.IsMethodSet() {
+				p.s.greater(posResult{
+					version: 18,
+					pos:     p.fset.Position(expr.Pos()),
+					desc:    "interface containing type terms",
+				})
+			}
+		}
+	}
 	return p.fieldList(expr.Methods)
+}
+
+// Is intf defined in terms of overlapping method sets?
+// If so, require Go 1.14 or later.
+func (p *pkgScanner) checkInterfaceOverlaps(intf *types.Interface, pos token.Pos) {
+	for i := 0; i < intf.NumEmbeddeds(); i++ {
+		embed := intf.EmbeddedType(i)
+		if embed1, ok := embed.Underlying().(*types.Interface); ok {
+			for j := i + 1; j < intf.NumEmbeddeds(); j++ {
+				embed = intf.EmbeddedType(j)
+				if embed2, ok := embed.Underlying().(*types.Interface); ok {
+					for ii := 0; ii < embed1.NumMethods(); ii++ {
+						for jj := 0; jj < embed2.NumMethods(); jj++ {
+							if embed1.Method(ii).Name() == embed2.Method(jj).Name() { // we don't care whether the signatures match
+								p.s.greater(posResult{
+									version: 14,
+									pos:     p.fset.Position(pos),
+									desc:    "interface defined in terms of overlapping method sets",
+								})
+								return
+							}
+						}
+					}
+				}
+			}
+
+			for j := 0; j < intf.NumExplicitMethods(); j++ {
+				for ii := 0; ii < embed1.NumMethods(); ii++ {
+					if intf.ExplicitMethod(j).Name() == embed1.Method(ii).Name() { // we don't care whether the signatures match
+						p.s.greater(posResult{
+							version: 14,
+							pos:     p.fset.Position(pos),
+							desc:    "interface defined in terms of overlapping method sets",
+						})
+						return
+					}
+				}
+			}
+		}
+	}
 }
 
 func (p *pkgScanner) mapType(expr *ast.MapType) error {
