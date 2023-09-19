@@ -40,12 +40,14 @@ This command runs mingo on the Go module in the given directory DIR
 
 The flags and their meanings are:
 
+----------------------------------------------------------------------------------------------
 | -v         | Run verbosely                                                                 |
 | -deps      | Include dependencies                                                          |
 | -indirect  | With -deps, include indirect dependencies                                     |
 | -tests     | Include tests                                                                 |
 | -check     | Check that the module declares the right version of Go                        |
 | -api API   | Find the Go API files in the directory API instead of the default $GOROOT/api |
+----------------------------------------------------------------------------------------------
 
 Normal output is the lowest minor version of Go
 (the x in Go 1.x)
