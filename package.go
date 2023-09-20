@@ -27,6 +27,30 @@ func (p *pkgScanner) file(file *ast.File) error {
 	return nil
 }
 
+func (p *pkgScanner) greater(result Result) bool {
+	return p.s.greater(result)
+}
+
 func (p *pkgScanner) isMax() bool {
 	return p.s.isMax()
+}
+
+func (p *pkgScanner) isTypeExpr(expr ast.Expr) bool {
+	tv, ok := p.info.Types[expr]
+	if !ok {
+		return false
+	}
+	return tv.IsType()
+}
+
+func (p *pkgScanner) isSigned(expr ast.Expr) bool {
+	tv, ok := p.info.Types[expr]
+	if !ok {
+		return false
+	}
+	basic, ok := tv.Type.(*types.Basic)
+	if !ok {
+		return false
+	}
+	return basic.Info()&types.IsInteger != 0 && basic.Info()&types.IsUnsigned == 0
 }

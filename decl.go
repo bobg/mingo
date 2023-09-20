@@ -31,7 +31,7 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 			pos:     p.fset.Position(decl.Pos()),
 			desc:    "generic func decl",
 		}
-		if p.s.greater(declResult) {
+		if p.greater(declResult) {
 			return nil
 		}
 	}
@@ -114,11 +114,9 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) error {
 	return nil
 }
 
-// xxx check for interface definition with overlapping method sets,
-// allowed as of Go 1.14.
 func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) error {
 	if spec.Assign.IsValid() {
-		p.s.greater(posResult{
+		p.greater(posResult{
 			version: 9,
 			pos:     p.fset.Position(spec.Pos()),
 			desc:    "type alias",
@@ -132,7 +130,7 @@ func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) error {
 			pos:     p.fset.Position(spec.Pos()),
 			desc:    "generic type decl",
 		}
-		if p.s.greater(declResult) {
+		if p.greater(declResult) {
 			return nil
 		}
 	}

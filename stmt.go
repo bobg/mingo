@@ -3,6 +3,7 @@ package mingo
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 )
 
 func (p *pkgScanner) stmt(stmt ast.Stmt) error {
@@ -83,6 +84,17 @@ func (p *pkgScanner) incDecStmt(stmt *ast.IncDecStmt) error {
 }
 
 func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) error {
+	switch stmt.Tok {
+	case token.SHL_ASSIGN, token.SHR_ASSIGN:
+		if len(stmt.Rhs) == 1 && p.isSigned(stmt.Rhs[0]) {
+			p.greater(posResult{
+				version: 13,
+				pos:     p.fset.Position(stmt.Pos()),
+				desc:    "signed shift count",
+			})
+		}
+	}
+
 	for _, expr := range stmt.Lhs {
 		if err := p.expr(expr); err != nil {
 			return err
@@ -249,7 +261,7 @@ func (p *pkgScanner) forStmt(stmt *ast.ForStmt) error {
 
 func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
 	if stmt.Key == nil && stmt.Value == nil {
-		p.s.greater(posResult{
+		p.greater(posResult{
 			version: 4,
 			pos:     p.fset.Position(stmt.Pos()),
 			desc:    `variable-free "for range" statement`,

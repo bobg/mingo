@@ -76,7 +76,7 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 				pos:     p.fset.Position(ident.Pos()),
 				desc:    `"any" builtin`,
 			}
-			p.s.greater(idResult)
+			p.greater(idResult)
 			return nil
 		}
 	}
@@ -95,7 +95,7 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 			pos:     p.fset.Position(ident.Pos()),
 			desc:    fmt.Sprintf(`"%s".%s`, pkgpath, ident.Name),
 		}
-		p.s.greater(idResult)
+		p.greater(idResult)
 	}
 	return nil
 }
@@ -115,23 +115,23 @@ func (p *pkgScanner) basicLit(lit *ast.BasicLit) error {
 
 	// Does this numeric literal use expanded Go 1.13 syntax?
 	if strings.Contains(lit.Value, "_") {
-		p.s.greater(numResult)
+		p.greater(numResult)
 		return nil
 	}
 	if strings.HasPrefix(lit.Value, "0b") || strings.HasPrefix(lit.Value, "0B") {
-		p.s.greater(numResult)
+		p.greater(numResult)
 		return nil
 	}
 	if strings.HasPrefix(lit.Value, "0o") || strings.HasPrefix(lit.Value, "0O") {
-		p.s.greater(numResult)
+		p.greater(numResult)
 		return nil
 	}
 	if strings.HasPrefix(lit.Value, "0x") || strings.HasPrefix(lit.Value, "0X") {
-		p.s.greater(numResult)
+		p.greater(numResult)
 		return nil
 	}
 	if strings.HasSuffix(lit.Value, "i") {
-		p.s.greater(numResult)
+		p.greater(numResult)
 		return nil
 	}
 
@@ -145,7 +145,7 @@ func (p *pkgScanner) funcLit(lit *ast.FuncLit) error {
 			pos:     p.fset.Position(lit.Pos()),
 			desc:    "generic function literal",
 		}
-		p.s.greater(result)
+		p.greater(result)
 	}
 
 	return p.funcBody(lit.Body)
@@ -169,7 +169,7 @@ func (p *pkgScanner) funcBody(body *ast.BlockStmt) error {
 	if _, ok := last.(*ast.ReturnStmt); ok {
 		return nil
 	}
-	p.s.greater(posResult{
+	p.greater(posResult{
 		version: 1,
 		pos:     p.fset.Position(last.End()),
 		desc:    "function body with no final return statement",
@@ -189,7 +189,7 @@ func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) error {
 
 		if kv, ok := elt.(*ast.KeyValueExpr); ok {
 			if ck, ok := kv.Key.(*ast.CompositeLit); ok && ck.Type == nil {
-				p.s.greater(posResult{
+				p.greater(posResult{
 					version: 5,
 					pos:     p.fset.Position(ck.Pos()),
 					desc:    "composite literal with composite-type key and no explicit type",
@@ -215,7 +215,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) error 
 
 	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
 		if _, ok := obj.Type().(*types.Signature); ok && !isCallFun {
-			p.s.greater(posResult{
+			p.greater(posResult{
 				version: 1,
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    "method used as value",
@@ -233,7 +233,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) error 
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    fmt.Sprintf(`"%s".%s`, pkgpath, expr.Sel.Name),
 			}
-			p.s.greater(selResult)
+			p.greater(selResult)
 		}
 		return nil
 	}
@@ -268,12 +268,9 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) error 
 		pos:     p.fset.Position(expr.Pos()),
 		desc:    fmt.Sprintf(`"%s".%s.%s`, pkgpath, typestr, expr.Sel.Name),
 	}
-	p.s.greater(selResult)
+	p.greater(selResult)
 	return nil
 }
-
-// xxx detect foo[bar, ...] where bar, ... are type args.
-// xxx do those parse as index/indexlist exprs?
 
 func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) error {
 	if err := p.expr(expr.X); err != nil {
@@ -281,6 +278,13 @@ func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) error {
 	}
 	if p.isMax() {
 		return nil
+	}
+	if p.isTypeExpr(expr.Index) {
+		p.greater(posResult{
+			version: 18,
+			pos:     p.fset.Position(expr.Pos()),
+			desc:    "generic instantiation",
+		})
 	}
 	return p.expr(expr.Index)
 }
@@ -293,6 +297,13 @@ func (p *pkgScanner) indexListExpr(expr *ast.IndexListExpr) error {
 		return nil
 	}
 	for _, index := range expr.Indices {
+		if p.isTypeExpr(index) {
+			p.greater(posResult{
+				version: 18,
+				pos:     p.fset.Position(expr.Pos()),
+				desc:    "generic instantiation",
+			})
+		}
 		if err := p.expr(index); err != nil {
 			return err
 		}
@@ -310,7 +321,7 @@ func (p *pkgScanner) sliceExpr(expr *ast.SliceExpr) error {
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    "slice expression with 3 indices",
 		}
-		if p.s.greater(result) {
+		if p.greater(result) {
 			return nil
 		}
 	}
@@ -394,7 +405,7 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 	if argStruct, ok := argtyp.(*types.Struct); ok {
 		if funStruct, ok := funtyp.(*types.Struct); ok {
 			if differingTags(argStruct, funStruct) {
-				p.s.greater(posResult{
+				p.greater(posResult{
 					version: 8,
 					pos:     p.fset.Position(expr.Pos()),
 					desc:    "conversion between structs with differing struct tags",
@@ -411,7 +422,7 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    "conversion from slice to array",
 			}
-			p.s.greater(convResult)
+			p.greater(convResult)
 			return nil
 		}
 		if ptr, ok := funtyp.(*types.Pointer); ok {
@@ -422,7 +433,7 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 					pos:     p.fset.Position(expr.Pos()),
 					desc:    "conversion from slice to array pointer",
 				}
-				p.s.greater(convResult)
+				p.greater(convResult)
 				return nil
 			}
 		}
@@ -443,7 +454,7 @@ func (p *pkgScanner) builtinCall(expr *ast.CallExpr) error {
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    fmt.Sprintf("use of %s builtin", id.Name),
 		}
-		p.s.greater(result)
+		p.greater(result)
 	}
 	return nil
 }
@@ -464,11 +475,28 @@ func (p *pkgScanner) starExpr(expr *ast.StarExpr) error {
 }
 
 func (p *pkgScanner) unaryExpr(expr *ast.UnaryExpr) error {
+	if expr.Op == token.TILDE {
+		p.greater(posResult{
+			version: 18,
+			pos:     p.fset.Position(expr.Pos()),
+			desc:    "tilde operator",
+		})
+	}
+
 	return p.expr(expr.X)
 }
 
 func (p *pkgScanner) binaryExpr(expr *ast.BinaryExpr) error {
-	// xxx Bit-shift nbits value no longer required to be unsigned in Go 1.13
+	switch expr.Op {
+	case token.SHL, token.SHR:
+		if p.isSigned(expr.Y) {
+			p.greater(posResult{
+				version: 13,
+				pos:     p.fset.Position(expr.Pos()),
+				desc:    "signed shift count",
+			})
+		}
+	}
 
 	if err := p.expr(expr.X); err != nil {
 		return err
@@ -510,7 +538,7 @@ func (p *pkgScanner) funcType(expr *ast.FuncType) error {
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    "generic function type",
 		}
-		if p.s.greater(result) {
+		if p.greater(result) {
 			return nil
 		}
 	}
@@ -530,7 +558,7 @@ func (p *pkgScanner) interfaceType(expr *ast.InterfaceType) error {
 			p.checkInterfaceOverlaps(intf, expr.Pos())
 
 			if !intf.IsMethodSet() {
-				p.s.greater(posResult{
+				p.greater(posResult{
 					version: 18,
 					pos:     p.fset.Position(expr.Pos()),
 					desc:    "interface containing type terms",
@@ -553,7 +581,7 @@ func (p *pkgScanner) checkInterfaceOverlaps(intf *types.Interface, pos token.Pos
 					for ii := 0; ii < embed1.NumMethods(); ii++ {
 						for jj := 0; jj < embed2.NumMethods(); jj++ {
 							if embed1.Method(ii).Name() == embed2.Method(jj).Name() { // we don't care whether the signatures match
-								p.s.greater(posResult{
+								p.greater(posResult{
 									version: 14,
 									pos:     p.fset.Position(pos),
 									desc:    "interface defined in terms of overlapping method sets",
@@ -568,7 +596,7 @@ func (p *pkgScanner) checkInterfaceOverlaps(intf *types.Interface, pos token.Pos
 			for j := 0; j < intf.NumExplicitMethods(); j++ {
 				for ii := 0; ii < embed1.NumMethods(); ii++ {
 					if intf.ExplicitMethod(j).Name() == embed1.Method(ii).Name() { // we don't care whether the signatures match
-						p.s.greater(posResult{
+						p.greater(posResult{
 							version: 14,
 							pos:     p.fset.Position(pos),
 							desc:    "interface defined in terms of overlapping method sets",
