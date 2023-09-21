@@ -37,28 +37,46 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 }
 
 type modDownload struct {
-	Path, Version, GoMod string
+	GoMod string
 }
 
-func (s *Scanner) scanDep(mv module.Version) error {
-	cmd := exec.Command("go", "mod", "download", "-json", mv.Path+"@"+mv.Version)
+type depScanner interface {
+	scan(modpath, version string) (modDownload, error)
+}
+
+type realDepScanner struct{}
+
+func (s realDepScanner) scan(modpath, version string) (modDownload, error) {
+	var result modDownload
+
+	cmd := exec.Command("go", "mod", "download", "-json", modpath+"@"+version)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return errors.Wrapf(err, "creating stdout pipe for download of %s", mv.Path)
+		return result, errors.Wrapf(err, "creating stdout pipe for download of %s", modpath)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return errors.Wrapf(err, "starting download of %s", mv.Path)
+		return result, errors.Wrapf(err, "starting download of %s", modpath)
 	}
 	defer cmd.Wait()
 
-	var download modDownload
-	if err := json.NewDecoder(stdout).Decode(&download); err != nil {
-		return errors.Wrapf(err, "decoding download of %s", mv.Path)
+	if err := json.NewDecoder(stdout).Decode(&result); err != nil {
+		return result, errors.Wrapf(err, "decoding download of %s", modpath)
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return errors.Wrapf(err, "waiting for download of %s", mv.Path)
+	err = cmd.Wait()
+	return result, errors.Wrapf(err, "waiting for download of %s", modpath)
+}
+
+func (s *Scanner) scanDep(mv module.Version) error {
+	scanner := s.depScanner
+	if scanner == nil {
+		scanner = realDepScanner{}
+	}
+
+	download, err := scanner.scan(mv.Path, mv.Version)
+	if err != nil {
+		return errors.Wrapf(err, "scanning %s@%s", mv.Path, mv.Version)
 	}
 
 	gomodBytes, err := os.ReadFile(download.GoMod)

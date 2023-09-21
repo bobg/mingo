@@ -21,7 +21,9 @@ type Scanner struct {
 	Check    bool   // produce an error if the module declares the wrong version in go.mod
 	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
-	h      *history
+	h          *history
+	depScanner depScanner
+
 	result Result
 }
 

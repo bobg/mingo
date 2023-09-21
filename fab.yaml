@@ -34,6 +34,7 @@ CoverOut: !Files
   Out: [cover.out]
   Target: !Command
     Shell: go test -coverprofile cover.out ./...
+    Stdout: $stdout
   Autoclean: true
 
 # Clean removes build-target output.
