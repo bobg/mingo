@@ -78,9 +78,11 @@ func zero16() int {
 foo:
 	; // labeled empty statement
 
+	nums := []int{0, 1, 2}
+
 	ch := make(chan int, 2)
-	ch <- 1 // send stmt
-	ch <- 2
+	ch <- nums[1]   // send stmt, index expr
+	ch <- (nums[2]) // paren expr
 
 	x := <-ch
 	x++ // incdec stmt
@@ -120,6 +122,9 @@ foo:
 	default:
 		println("z is not int")
 	}
+
+	zptr := &z
+	println(*zptr) // star expr
 
 	return 0
 }
