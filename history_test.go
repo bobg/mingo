@@ -27,6 +27,10 @@ func TestHistory(t *testing.T) {
 		typ:     "Cover",
 		ident:   "Blocks",
 		want:    2,
+	}, {
+		pkgpath: "crypto/elliptic",
+		ident:   "Curve",
+		want:    0,
 	}}
 
 	for _, tc := range cases {

@@ -145,6 +145,9 @@ func readHistVersion(h *history, fsys fs.FS, filename string, v int) error {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
+		if strings.Contains(line, "//deprecated") {
+			continue
+		}
 		if m := constRegex.FindStringSubmatch(line); len(m) > 0 {
 			match2(h, m[1], m[3], v)
 		} else if m := fieldRegex.FindStringSubmatch(line); len(m) > 0 {
