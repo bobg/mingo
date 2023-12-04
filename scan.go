@@ -2,6 +2,9 @@ package mingo
 
 import (
 	"fmt"
+	"go/ast"
+	"go/token"
+	"go/types"
 	"os"
 	"regexp"
 	"runtime"
@@ -123,14 +126,18 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 }
 
 func (s *Scanner) scanPackage(pkg *packages.Package) error {
+	return s.scanPackageHelper(pkg.PkgPath, pkg.Fset, pkg.TypesInfo, pkg.Syntax)
+}
+
+func (s *Scanner) scanPackageHelper(pkgpath string, fset *token.FileSet, info *types.Info, files []*ast.File) error {
 	p := pkgScanner{
 		s:       s,
-		pkgpath: pkg.PkgPath,
-		fset:    pkg.Fset,
-		info:    pkg.TypesInfo,
+		pkgpath: pkgpath,
+		fset:    fset,
+		info:    info,
 	}
 
-	for _, file := range pkg.Syntax {
+	for _, file := range files {
 		filename := p.fset.Position(file.Pos()).Filename
 		if err := p.file(file); err != nil {
 			return errors.Wrapf(err, "scanning file %s", filename)

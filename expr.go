@@ -152,6 +152,10 @@ func (p *pkgScanner) funcLit(lit *ast.FuncLit) error {
 }
 
 func (p *pkgScanner) funcBody(body *ast.BlockStmt) error {
+	if body == nil {
+		return nil
+	}
+
 	if len(body.List) == 0 {
 		return nil
 	}
