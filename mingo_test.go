@@ -8,10 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"github.com/bobg/gocheck"
-	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/packages"
 )
 
 func TestLangChecks(t *testing.T) {
@@ -99,31 +95,8 @@ func TestLangChecks(t *testing.T) {
 						}
 					})
 
-					t.Run("analyzer", func(t *testing.T) {
-						s := Scanner{Verbose: testing.Verbose()}
-						a, err := s.Analyzer()
-						if err != nil {
-							t.Fatal(err)
-						}
-						conf := &packages.Config{
-							Mode:  Mode,
-							Dir:   tmpdir,
-							Tests: s.Tests,
-						}
-						pkgs, err := packages.Load(conf, "./...")
-						if err != nil {
-							t.Fatal(err)
-						}
-
-						c := gocheck.Controller{Verbose: testing.Verbose()}
-						if _, err = c.Run(pkgs, []*analysis.Analyzer{a}); err != nil {
-							t.Fatal(err)
-						}
-
-						if s.Result.Version() != min {
-							t.Errorf("got %d, want %d", s.Result.Version(), min)
-						}
-					})
+					// TODO: check the same thing using Scanner.Analyzer
+					// (when the API in https://github.com/golang/go/issues/61324 lands)
 				})
 			}
 
