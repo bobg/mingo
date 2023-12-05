@@ -24,10 +24,10 @@ type Scanner struct {
 	Check    bool   // produce an error if the module declares the wrong version in go.mod
 	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
+	Result Result
+
 	h          *history
 	depScanner depScanner
-
-	result Result
 }
 
 // Mode is the minimum mode needed when using [packages.Load] to scan packages.
@@ -71,7 +71,7 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 		return nil, err
 	}
 
-	s.result = intResult(0)
+	s.Result = intResult(0)
 
 	for i, pkg := range pkgs {
 		if len(pkg.Errors) > 0 {
@@ -114,15 +114,15 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("go.mod has invalid go version %s", pkgs[0].Module.GoVersion)
 		}
-		if s.result.Version() != declared {
+		if s.Result.Version() != declared {
 			return nil, VersionError{
-				Computed: s.result,
+				Computed: s.Result,
 				Declared: declared,
 			}
 		}
 	}
 
-	return s.result, nil
+	return s.Result, nil
 }
 
 func (s *Scanner) scanPackage(pkg *packages.Package) error {
@@ -165,8 +165,8 @@ func (s *Scanner) verbosef(format string, args ...any) {
 }
 
 func (s *Scanner) greater(result Result) bool {
-	if result.Version() > s.result.Version() {
-		s.result = result
+	if result.Version() > s.Result.Version() {
+		s.Result = result
 		s.verbosef("%s", result)
 	}
 	return s.isMax()
@@ -212,5 +212,5 @@ func (s *Scanner) ensureHistory() error {
 
 // Prereq: e.ensureHistory has been called.
 func (s *Scanner) isMax() bool {
-	return s.result.Version() >= s.h.max
+	return s.Result.Version() >= s.h.max
 }

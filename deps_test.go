@@ -11,7 +11,7 @@ func TestScanDeps(t *testing.T) {
 		depScanner: mockDepScanner{
 			"foo.bar/baz@v1.2.3": "_testdata/foobar.go.mod",
 		},
-		result: intResult(0),
+		Result: intResult(0),
 	}
 	if err := s.ensureHistory(); err != nil {
 		t.Fatal(err)
@@ -19,11 +19,11 @@ func TestScanDeps(t *testing.T) {
 	if err := s.scanDeps("_testdata/go.mod"); err != nil {
 		t.Fatal(err)
 	}
-	if s.result == nil {
+	if s.Result == nil {
 		t.Fatal("nil result")
 	}
-	if s.result.Version() != 16 {
-		t.Errorf("got %d, want 16", s.result.Version())
+	if s.Result.Version() != 16 {
+		t.Errorf("got %d, want 16", s.Result.Version())
 	}
 }
 

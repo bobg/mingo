@@ -2,6 +2,9 @@ package mingo
 
 import "golang.org/x/tools/go/analysis"
 
+// Analyzer produces an [analysis.Analyzer] that can be used to scan packages.
+// The result (which may depend on scanning multiple packages)
+// is available in s.Result.
 func (s *Scanner) Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "mingo",
