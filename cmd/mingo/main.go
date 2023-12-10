@@ -11,17 +11,15 @@ import (
 
 func main() {
 	var (
-		api      string
-		verbose  bool
-		deps     bool
-		indirect bool
-		tests    bool
-		check    bool
+		api     string
+		verbose bool
+		deps    string
+		tests   bool
+		check   bool
 	)
 	flag.StringVar(&api, "api", "", "path to api directory")
 	flag.BoolVar(&verbose, "v", false, "be verbose")
-	flag.BoolVar(&deps, "deps", false, "include dependencies")
-	flag.BoolVar(&indirect, "indirect", false, "with -deps, include indirect dependencies")
+	flag.StringVar(&deps, "deps", "all", "which dependencies to scan (all, direct, none)")
 	flag.BoolVar(&tests, "tests", false, "include tests")
 	flag.BoolVar(&check, "check", false, "produce an error if module declares wrong version in go.mod")
 	flag.Parse()
@@ -31,11 +29,19 @@ func main() {
 		dir = flag.Arg(0)
 	}
 
+	switch deps {
+	case "all", "direct", "none":
+		// ok, do nothing
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid value for -deps: %s (should be all, direct, or none)\n", deps)
+		os.Exit(1)
+	}
+
 	s := mingo.Scanner{
 		HistDir:  api,
 		Verbose:  verbose,
-		Deps:     deps,
-		Indirect: indirect,
+		Deps:     deps != "none",
+		Indirect: deps == "all",
 		Tests:    tests,
 		Check:    check,
 	}

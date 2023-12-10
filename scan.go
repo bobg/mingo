@@ -73,15 +73,18 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 
 	s.Result = intResult(0)
 
-	for i, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			var err error
-			for _, e := range pkg.Errors {
-				err = errors.Join(err, e)
-			}
-			return nil, errors.Wrapf(err, "loading package %s", pkg.PkgPath)
+	// Check for loading errors.
+	var err error
+	for _, pkg := range pkgs {
+		for _, e := range pkg.Errors {
+			err = errors.Join(err, errors.Wrapf(e, "loading package %s", pkg.PkgPath))
 		}
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "loading package(s)")
+	}
 
+	for i, pkg := range pkgs {
 		if pkg.Module == nil {
 			return nil, fmt.Errorf("package %s has no module", pkg.PkgPath)
 		}
