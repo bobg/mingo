@@ -32,7 +32,7 @@ For library usage please see
 Command-line usage:
 
 ```sh
-mingo [-v] [-deps] [-indirect] [-tests] [-check] [-api API] [DIR]
+mingo [-v] [-deps (all|direct|none)] [-tests] [-check] [-api API] [DIR]
 ```
 
 This command runs mingo on the Go module in the given directory DIR
@@ -43,8 +43,7 @@ The flags and their meanings are:
 | flag       | meaning                                                                       |
 |------------|-------------------------------------------------------------------------------|
 | -v         | Run verbosely                                                                 |
-| -deps      | Include dependencies                                                          |
-| -indirect  | With -deps, include indirect dependencies                                     |
+| -deps      | Dependencies to include - `all` (the default), `direct` only, or `none`       |
 | -tests     | Include tests                                                                 |
 | -check     | Check that the module declares the right version of Go                        |
 | -api API   | Find the Go API files in the directory API instead of the default $GOROOT/api |
@@ -57,11 +56,12 @@ Running with `-check` causes mingo to exit with a 0 status code and no output
 if the module declares the correct version of Go,
 or a non-zero status and an error message otherwise.
 
-Including dependencies with `-deps`
+Including dependencies with `-deps all` (the default)
 allows `go` directives in imported modules’ `go.mod` files
 to change the result.
-Normally this includes only direct imports,
-but with the addition of `-indirect` it includes indirect imports too.
+This includes both direct and indirect imports.
+Use `-deps direct` to consider direct imports only,
+and `-deps none` to exclude imports.
 
 ## Discussion
 
