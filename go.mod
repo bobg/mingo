@@ -1,6 +1,6 @@
 module github.com/bobg/mingo
 
-go 1.21.0
+go 1.22
 
 require (
 	github.com/bobg/errors v0.10.0
