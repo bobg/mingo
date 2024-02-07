@@ -64,7 +64,7 @@ func TestLangChecks(t *testing.T) {
 					defer os.RemoveAll(tmpdir)
 
 					gomod := filepath.Join(tmpdir, "go.mod")
-					if err := os.WriteFile(gomod, []byte("module foo\ngo 1.21.0\n"), 0644); err != nil {
+					if err := os.WriteFile(gomod, []byte("module foo\ngo 1.22.0\n"), 0644); err != nil {
 						t.Fatal(err)
 					}
 

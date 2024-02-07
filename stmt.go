@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 )
 
 func (p *pkgScanner) stmt(stmt ast.Stmt) error {
@@ -286,5 +287,33 @@ func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
 	if p.isMax() {
 		return nil
 	}
+
+	tv, ok := p.info.Types[stmt.X]
+	if !ok {
+		return fmt.Errorf("no type info for range expression at %s", p.fset.Position(stmt.X.Pos()))
+	}
+	switch typ := tv.Type.Underlying().(type) {
+	case *types.Basic:
+		switch typ.Kind() {
+		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
+			// TODO: all integer kinds, or just some?
+			p.greater(posResult{
+				version: 22,
+				pos:     p.fset.Position(stmt.Pos()),
+				desc:    "range over integer",
+			})
+		}
+
+	case *types.Signature:
+		p.greater(posResult{
+			version: 23,
+			pos:     p.fset.Position(stmt.Pos()),
+			desc:    "range over function",
+		})
+	}
+	if p.isMax() {
+		return nil
+	}
+
 	return p.blockStmt(stmt.Body)
 }

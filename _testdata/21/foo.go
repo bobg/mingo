@@ -1,1 +1,1 @@
-var x = max(1, 2)
+var twentyone = max(1, 2)
