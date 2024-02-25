@@ -80,8 +80,12 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 			return nil
 		}
 	}
+
 	obj, ok := p.info.Uses[ident]
 	if !ok || obj == nil {
+		return nil
+	}
+	if !obj.Exported() {
 		return nil
 	}
 	pkg := obj.Pkg()
@@ -89,9 +93,8 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 		return nil
 	}
 	pkgpath := obj.Pkg().Path()
-	// TODO: Check obj.Exported()?
-	// TODO: Use ident.Name in this lookup call, or obj.Id()?
-	if v := p.s.lookup(pkgpath, ident.Name, ""); v > 0 {
+
+	if v := p.s.lookup(pkgpath, obj.Id(), ""); v > 0 {
 		idResult := posResult{
 			version: v,
 			pos:     p.fset.Position(ident.Pos()),
