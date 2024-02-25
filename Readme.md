@@ -85,3 +85,8 @@ Practically speaking there’s no point declaring a version of Go earlier than 1
 since [that’s the first version](https://go.dev/doc/go1.11#modules) that understood `go.mod` files.
 But mingo will still report earlier version numbers when warranted
 (somewhat pedantically).
+
+## How this works
+
+Mingo is a good illustration of how to write a static analysis tool in and for Go.
+See [Tour.md](Tour.md) for an in-depth discussion of how the code works.
