@@ -244,9 +244,9 @@ if we get a hit from this history lookup,
 we [update the required Go version](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/expr.go#L98-L103) using the value from the lookup.
 
 That takes care of detecting language changes and standard-library changes.
-Of course there are a lot of other cases that mingo covers,
+Of course there are a lot of other such cases that mingo covers,
 but all of those are handled in one or another of the ways described here.
-There’s one more way in which the minimum-required version of Go can increase,
+There’s one more way in which the minimum-required version of Go can increase, though,
 and that’s if it depends on a module that declares a higher minimum Go version.
 This is handled in [Scanner.scanDeps](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L16).
 
@@ -262,7 +262,9 @@ which happens [here](https://github.com/bobg/mingo/blob/bddce647865471cc1b321489
 (The extra logic delegating that job to a `depScanner`
 allows [a mock dependency scanner](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps_test.go#L30) to be injected for testing.)
 It is then possible to [parse _the dependency’s_ go.mod file](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L86)
-to discover the version in [its go directive](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L94).
+to discover the version in [its go directive](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L94),
+which mingo accepts on faith
+(rather than scanning all the code in the dependency too).
 
 That’s everything about how mingo does its job.
 But there’s still one more topic to cover:
