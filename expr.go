@@ -98,7 +98,7 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 		idResult := posResult{
 			version: v,
 			pos:     p.fset.Position(ident.Pos()),
-			desc:    fmt.Sprintf(`"%s".%s`, pkgpath, ident.Name),
+			desc:    fmt.Sprintf(`"%s".%s`, pkgpath, obj.Id()),
 		}
 		p.greater(idResult)
 	}
