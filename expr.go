@@ -69,8 +69,8 @@ func (p *pkgScanner) exprHelper(expr ast.Expr, isCallFun bool) error {
 
 func (p *pkgScanner) ident(ident *ast.Ident) error {
 	if tv, ok := p.info.Types[ident]; ok && tv.IsType() && ident.Name == "any" {
-		// It's a type named "any," but is it actually the "any" type?
-		if intf, ok := tv.Type.Underlying().(*types.Interface); ok && intf.Empty() {
+		// It's a type named "any," but is it the predefined "any" type?
+		if obj, ok := p.info.Uses[ident]; ok && obj.Pkg() == nil {
 			idResult := posResult{
 				version: 18,
 				pos:     p.fset.Position(ident.Pos()),
