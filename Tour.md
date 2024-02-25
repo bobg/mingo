@@ -197,7 +197,7 @@ This leads to another big type switch that dispatches to another set of type-spe
 By now the techniques for walking these data types should be familiar,
 but there’s still one important thing we haven’t seen,
 so let’s focus on the expression type [ast.Ident](https://pkg.go.dev/go/ast#Ident),
-handled in [pkgScanner.ident](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/expr.go#L70).
+handled in [pkgScanner.ident](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/expr.go#L70).
 
 First the function checks to see whether the identifier is `any`,
 and is being used as a type,
@@ -212,4 +212,46 @@ a type, a function, a constant, etc. −
 is represented by a [types.Object](https://pkg.go.dev/go/types#Object),
 and from it we can get the path of the package it lives in.
 
-Now we can use the package’s path and the identifier to do [an API history lookup](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/expr.go#L92).
+Now we can use the package’s path and the identifier to do [an API history lookup](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/expr.go#L97).
+This is where we check to see whether the code is referring to something from the standard library
+that was introduced at some particular version of Go.
+But how?
+
+One thing we glossed over,
+back at the beginning of `Scanner.ScanPackages`,
+was [this call](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/scan.go#L70) to `Scanner.ensureHistory`,
+which ensures that the scanner’s API history information
+([this field](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/scan.go#L29))
+is populated.
+That happens [here](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/hist.go#L66).
+It parses the files in [the api directory](https://cs.opensource.google/go/go/+/master:api/) that ships with Go
+([a snapshot of which](https://github.com/bobg/mingo/tree/main/api) is [embedded](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/hist.go#L56-L57) into mingo itself).
+Each file describes the new identifiers added to the standard library at a particular version of Go.
+[Here](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/api/go1.7.txt#L6-L19), for example,
+is the addition of the `context` package in Go 1.7.
+
+Armed with that history,
+looking up an identifier in a particular package path is relatively simple,
+and happens [here](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/hist.go#L26).
+
+Back in `pkgScanner.ident`,
+if we get a hit from this history lookup,
+we [update the required Go version](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/expr.go#L98-L103) using the value from the lookup.
+
+And that’s everything!
+Of course there are a lot of other cases that mingo covers,
+but all of those are handled in one or another of the ways described here.
+But there’s still one more topic to cover:
+the `Analyzer` API.
+
+The `golang.org/x/tools` module defines [a framework](https://pkg.go.dev/golang.org/x/tools/go/analysis) for Go static-analysis tools.
+To participate in this framework, an analyzer (like mingo) must present itself as a [analysis.Analyzer](https://pkg.go.dev/golang.org/x/tools/go/analysis#Analyzer).
+Doing so allows it to participate in command-line tools based on
+[singlechecker](https://pkg.go.dev/golang.org/x/tools/go/analysis/singlechecker)
+and [multichecker](https://pkg.go.dev/golang.org/x/tools/go/analysis/multichecker).
+(Which isn’t quite good enough for many purposes,
+which is why, as of this writing,
+there is [work in progress](https://github.com/golang/go/issues/61324) to improve its API.)
+
+Mingo includes an adapter for turning a `Scanner` into an `analysis.Analyzer`,
+[here](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/analyzer.go#L8).
