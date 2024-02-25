@@ -11,7 +11,7 @@ And of course the compiler statically analyzes source code in order to turn it i
 The Go programming language was designed in part to be easy to parse and analyze,
 for the sake of fast compilation,
 and to simplify the creation of all manner of development tooling.
-To that end, the Go standard library exposes some relevant packages,
+To that end, its standard library includes some relevant packages,
 such as [go/ast](https://pkg.go.dev/go/ast)
 (for representing a program’s abstract syntax tree)
 and [go/types](https://pkg.go.dev/go/types)
@@ -38,6 +38,9 @@ then walking its syntax tree looking for two things:
    it needs at least Go 1.6.
    If it calls `bytes.Clone`,
    it needs at least Go 1.20.
+
+Each time it finds one of these,
+it may bump up its idea of the minimum Go version needed.
 
 Mingo refers to this process as a “scan,”
 and the behavior of the scan is controlled by a `Scanner`,
@@ -92,7 +95,7 @@ Mingo will already have returned an error ([here](https://github.com/bobg/mingo/
 So [pkgScanner.decl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L9) does a type switch,
 calling [pkgScanner.funcDecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L19) for function declarations
 and [pkgScanner.genDecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L77)
-for generalized declarations (variables, constants, etc).
+for generalized declarations (types, variables, constants, and imports).
 
 So far, this tree walk has taken us from containers to the things they contain:
 from a directory to a set of packages;
@@ -201,10 +204,11 @@ handled in [pkgScanner.ident](https://github.com/bobg/mingo/blob/e25314c0cc521e7
 
 First the function checks to see whether the identifier is `any`,
 and is being used as a type,
-and the type is an empty interface.
+and is predefined.
 If so, the code requires Go 1.18.
 
-Otherwise it’s time to consult the `Uses` map of the [types.Info](https://pkg.go.dev/go/types#Info)
+Otherwise it’s time to see what object this identifier is a use of,
+by consulting the `Uses` map of the [types.Info](https://pkg.go.dev/go/types#Info)
 contained in the `pkgScanner`.
 This maps the identifier to the thing it’s being used to denote.
 That thing −
@@ -245,7 +249,7 @@ But there’s still one more topic to cover:
 the `Analyzer` API.
 
 The `golang.org/x/tools` module defines [a framework](https://pkg.go.dev/golang.org/x/tools/go/analysis) for Go static-analysis tools.
-To participate in this framework, an analyzer (like mingo) must present itself as a [analysis.Analyzer](https://pkg.go.dev/golang.org/x/tools/go/analysis#Analyzer).
+To participate in this framework, an analyzer (like mingo) must present itself as an [analysis.Analyzer](https://pkg.go.dev/golang.org/x/tools/go/analysis#Analyzer).
 Doing so allows it to participate in command-line tools based on
 [singlechecker](https://pkg.go.dev/golang.org/x/tools/go/analysis/singlechecker)
 and [multichecker](https://pkg.go.dev/golang.org/x/tools/go/analysis/multichecker).
