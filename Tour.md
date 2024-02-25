@@ -87,10 +87,11 @@ and [these three types](https://cs.opensource.google/go/go/+/master:src/go/ast/a
 
 We don’t care about `BadDecl`,
 which is a placeholder for declarations that couldn’t be parsed properly.
-Mingo returns an error for unparseable code ([here](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/scan.go#L76-L85)).
+If there is any unparseable code,
+Mingo will already have returned an error ([here](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/scan.go#L76-L85)).
 So [pkgScanner.decl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L9) does a type switch,
-calling [pkgScanner.funcdecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L19) for function declarations
-and [pkgScanner.gendecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L77)
+calling [pkgScanner.funcDecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L19) for function declarations
+and [pkgScanner.genDecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L77)
 for generalized declarations (variables, constants, etc).
 
 So far, this tree walk has taken us from containers to the things they contain:
@@ -182,3 +183,33 @@ To test whether that right-hand-side expression of the bit-shift-assignment stat
 [we check](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/package.go#L46)
 whether it’s a `*types.Basic`
 and then whether its `types.Integer` flag is set and its `types.IsUnsigned` flag is unset.
+
+Let’s now take a closer look at the last of our major interface types,
+[ast.Expr](https://pkg.go.dev/go/ast#Expr),
+which represents every kind of expression in Go:
+identifiers, pointer dereferences, multiplications,
+and also types that are spelled out in the code.
+This interface is implemented by [this collection](https://cs.opensource.google/go/go/+/master:src/go/ast/ast.go;l=548-573;drc=ef84d62cfc358ff62c60da9ceec754e7a389b5d5) of concrete types.
+
+When `pkgScanner.assignStmt` needs to descend into the left-hand and right-hand expressions,
+it does so by calling [pkgScanner.expr](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/expr.go#L11) on each of them.
+This leads to another big type switch that dispatches to another set of type-specific `pkgScanner` methods.
+By now the techniques for walking these data types should be familiar,
+but there’s still one important thing we haven’t seen,
+so let’s focus on the expression type [ast.Ident](https://pkg.go.dev/go/ast#Ident),
+handled in [pkgScanner.ident](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/expr.go#L70).
+
+First the function checks to see whether the identifier is `any`,
+and is being used as a type,
+and the type is an empty interface.
+If so, the code requires Go 1.18.
+
+Otherwise it’s time to consult the `Uses` map of the [types.Info](https://pkg.go.dev/go/types#Info)
+contained in the `pkgScanner`.
+This maps the identifier to the thing it’s being used to denote.
+That thing −
+a type, a function, a constant, etc. −
+is represented by a [types.Object](https://pkg.go.dev/go/types#Object),
+and from it we can get the path of the package it lives in.
+
+Now we can use the package’s path and the identifier to do [an API history lookup](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/expr.go#L92).

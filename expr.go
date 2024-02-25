@@ -89,6 +89,8 @@ func (p *pkgScanner) ident(ident *ast.Ident) error {
 		return nil
 	}
 	pkgpath := obj.Pkg().Path()
+	// TODO: Check obj.Exported()?
+	// TODO: Use ident.Name in this lookup call, or obj.Id()?
 	if v := p.s.lookup(pkgpath, ident.Name, ""); v > 0 {
 		idResult := posResult{
 			version: v,
