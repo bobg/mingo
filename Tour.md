@@ -21,12 +21,12 @@ about which, more below.
 
 “Mingo” is a Go static-analysis tool that I created recently in order to answer the question,
 “What is the oldest version of Go that can compile my code?”
-The answer to that question is what belongs in [the go directive](https://go.dev/ref/mod#go-mod-file-go) in a Go program’s go.mod file,
+The answer to that question is what belongs in [the go directive](https://go.dev/ref/mod#go-mod-file-go) in a Go program’s `go.mod` file,
 but it has historically been challenging to know what to put there.
 
 At a high level,
 mingo works by parsing a Go program,
-then walking its syntax tree looking for two things:
+then walking its syntax tree looking for three things:
 
 1. Language constructs introduced at a specific version of Go.
    For example, if a program contains a `for … range` statement with no variable assignment,
@@ -38,6 +38,7 @@ then walking its syntax tree looking for two things:
    it needs at least Go 1.6.
    If it calls `bytes.Clone`,
    it needs at least Go 1.20.
+3. The minimum Go version declared by the dependencies in `go.mod`.
 
 Each time it finds one of these,
 it may bump up its idea of the minimum Go version needed.
@@ -129,11 +130,11 @@ that constitute a function body,
 and then checks that there’s a final `return` statement.
 (If there isn’t, then Go 1.1 or later is required.)
 
-The type [ast.Stmt](https://pkg.go.dev/go/ast#Stmt),
-together with `ast.Decl` and `ast.Expr`
+The types [ast.Stmt](https://pkg.go.dev/go/ast#Stmt),
+`ast.Decl`, and `ast.Expr`
 (which we’ll see in a moment),
 form the core of the `ast` package.
-It’s an interface, and it’s implemented by
+`Stmt` is an interface, and it’s implemented by
 [a wide assortment](https://cs.opensource.google/go/go/+/master:src/go/ast/ast.go;l=849-871;drc=ef84d62cfc358ff62c60da9ceec754e7a389b5d5)
 of concrete types,
 representing variable assignments,
@@ -242,9 +243,28 @@ Back in `pkgScanner.ident`,
 if we get a hit from this history lookup,
 we [update the required Go version](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/expr.go#L98-L103) using the value from the lookup.
 
-And that’s everything!
+That takes care of detecting language changes and standard-library changes.
 Of course there are a lot of other cases that mingo covers,
 but all of those are handled in one or another of the ways described here.
+There’s one more way in which the minimum-required version of Go can increase,
+and that’s if it depends on a module that declares a higher minimum Go version.
+This is handled in [Scanner.scanDeps](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L16).
+
+That function parses the `go.mod` file
+([here](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L22))
+to discover direct dependencies.
+(Indirect ones are discarded [here](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L28-L30).)
+Each of those is then individually scanned by [Scanner.scanDep](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L71).
+
+The first thing that `Scanner.scanDep` does is to get a “download” of information about the dependency.
+This is the result of running `go mod download -json`,
+which happens [here](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L52).
+(The extra logic delegating that job to a `depScanner`
+allows [a mock dependency scanner](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps_test.go#L30) to be injected for testing.)
+It is then possible to [parse _the dependency’s_ go.mod file](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L86)
+to discover the version in [its go directive](https://github.com/bobg/mingo/blob/bddce647865471cc1b3214894582be9188b4af00/deps.go#L94).
+
+That’s everything about how mingo does its job.
 But there’s still one more topic to cover:
 the `Analyzer` API.
 
