@@ -19,7 +19,8 @@ and [go/types](https://pkg.go.dev/go/types)
 There are additional static-analysis tools in the [golang.org/x/tools](https://pkg.go.dev/golang.org/x/tools) module —
 about which, more below.
 
-“Mingo” is a Go static-analysis tool that I created recently in order to answer the question,
+“[Mingo](https://github.com/bobg/mingo#readme)”
+is a Go static-analysis tool that I created recently in order to answer the question,
 “What is the oldest version of Go that can compile my code?”
 The answer to that question is what belongs in [the go directive](https://go.dev/ref/mod#go-mod-file-go) in a Go program’s `go.mod` file,
 but it has historically been challenging to know what to put there.
@@ -281,3 +282,12 @@ there is [work in progress](https://github.com/golang/go/issues/61324) to improv
 
 Mingo includes an adapter for turning a `Scanner` into an `analysis.Analyzer`,
 [here](https://github.com/bobg/mingo/blob/e25314c0cc521e743eb39543db37296d4239df46/analyzer.go#L8).
+
+To continue learning about static analysis in Go,
+I recommended studying the code in [golang.org/x/tools/go/analysis/passes](https://cs.opensource.google/go/x/tools/+/master:go/analysis/passes/),
+each subdirectory of which implements a different analyzer.
+For example, [appends](https://cs.opensource.google/go/x/tools/+/master:go/analysis/passes/appends/)
+looks for misuse of the builtin `append` function,
+and [defers](https://cs.opensource.google/go/x/tools/+/master:go/analysis/passes/defers/)
+looks for the common mistake of passing the result of a (non-deferred) `time.Since` call
+to a deferred function.
