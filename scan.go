@@ -142,11 +142,8 @@ func (s *Scanner) scanPackageHelper(pkgpath string, fset *token.FileSet, info *t
 
 	for _, file := range files {
 		filename := p.fset.Position(file.Pos()).Filename
-		if err := p.file(file); err != nil {
+		if isMax, err := p.file(file); err != nil || isMax {
 			return errors.Wrapf(err, "scanning file %s", filename)
-		}
-		if p.isMax() {
-			break
 		}
 	}
 
