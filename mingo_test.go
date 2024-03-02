@@ -72,13 +72,7 @@ func TestLangChecks(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					var rmdir bool
-					defer func() {
-						if rmdir {
-							t.Logf("xxx removing %s", tmpdir)
-							os.RemoveAll(tmpdir)
-						}
-					}()
+					defer os.RemoveAll(tmpdir)
 
 					gomod := filepath.Join(tmpdir, "go.mod")
 					if err := os.WriteFile(gomod, []byte("module foo\ngo 1.22.0\n"), 0644); err != nil {
@@ -101,7 +95,7 @@ func TestLangChecks(t *testing.T) {
 					if len(combinedImports) > 0 {
 						fmt.Fprint(tmpfile, "import (\n")
 						for _, imp := range combinedImports {
-							fmt.Fprintf(tmpfile, "\t%q\n", imp)
+							fmt.Fprintf(tmpfile, "\t%s\n", imp)
 						}
 						fmt.Fprint(tmpfile, ")\n\n")
 					}
@@ -122,8 +116,6 @@ func TestLangChecks(t *testing.T) {
 						}
 						if res.Version() != min {
 							t.Errorf("got %d, want %d", res.Version(), min)
-						} else {
-							rmdir = true
 						}
 					})
 
@@ -168,7 +160,14 @@ func readGoFile(filename string) (string, []string, error) {
 			if len(fields) == 0 {
 				continue
 			}
-			imp := fields[0] // No import alias allowed
+			imp := fields[0]
+			if !strings.HasPrefix(imp, `"`) || !strings.HasSuffix(imp, `"`) {
+				if len(fields) < 2 {
+					return "", nil, fmt.Errorf("import without quotes")
+				}
+				// fields[0] is an import alias
+				imp += " " + fields[1]
+			}
 			imports = append(imports, imp)
 			continue
 		}
@@ -178,7 +177,14 @@ func readGoFile(filename string) (string, []string, error) {
 		}
 		if strings.HasPrefix(line, "import ") {
 			fields := strings.Fields(line)
-			imp := fields[1] // No import alias allowed
+			imp := fields[1]
+			if !strings.HasPrefix(imp, `"`) || !strings.HasSuffix(imp, `"`) {
+				if len(fields) < 3 {
+					return "", nil, fmt.Errorf("import without quotes")
+				}
+				// fields[1] is an import alias
+				imp += " " + fields[2]
+			}
 			imports = append(imports, imp)
 			continue
 		}
