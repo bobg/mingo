@@ -27,8 +27,8 @@ func (p *pkgScanner) file(file *ast.File) error {
 	return nil
 }
 
-func (p *pkgScanner) greater(result Result) bool {
-	return p.s.greater(result)
+func (p *pkgScanner) result(r Result) bool {
+	return p.s.result(r)
 }
 
 func (p *pkgScanner) isMax() bool {

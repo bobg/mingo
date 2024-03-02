@@ -31,7 +31,7 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) error {
 			pos:     p.fset.Position(decl.Pos()),
 			desc:    "generic func decl",
 		}
-		if p.greater(declResult) {
+		if p.result(declResult) {
 			return nil
 		}
 	}
@@ -116,7 +116,7 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) error {
 
 func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) error {
 	if spec.Assign.IsValid() {
-		p.greater(posResult{
+		p.result(posResult{
 			version: 9,
 			pos:     p.fset.Position(spec.Pos()),
 			desc:    "type alias",
@@ -130,7 +130,7 @@ func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) error {
 			pos:     p.fset.Position(spec.Pos()),
 			desc:    "generic type decl",
 		}
-		if p.greater(declResult) {
+		if p.result(declResult) {
 			return nil
 		}
 	}

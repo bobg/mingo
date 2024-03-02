@@ -88,7 +88,7 @@ func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) error {
 	switch stmt.Tok {
 	case token.SHL_ASSIGN, token.SHR_ASSIGN:
 		if len(stmt.Rhs) == 1 && p.isSigned(stmt.Rhs[0]) {
-			p.greater(posResult{
+			p.result(posResult{
 				version: 13,
 				pos:     p.fset.Position(stmt.Pos()),
 				desc:    "signed shift count",
@@ -262,7 +262,7 @@ func (p *pkgScanner) forStmt(stmt *ast.ForStmt) error {
 
 func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
 	if stmt.Key == nil && stmt.Value == nil {
-		p.greater(posResult{
+		p.result(posResult{
 			version: 4,
 			pos:     p.fset.Position(stmt.Pos()),
 			desc:    `variable-free "for range" statement`,
@@ -297,7 +297,7 @@ func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
 		switch typ.Kind() {
 		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 			// TODO: all integer kinds, or just some?
-			p.greater(posResult{
+			p.result(posResult{
 				version: 22,
 				pos:     p.fset.Position(stmt.Pos()),
 				desc:    "range over integer",
@@ -305,7 +305,7 @@ func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
 		}
 
 	case *types.Signature:
-		p.greater(posResult{
+		p.result(posResult{
 			version: 23,
 			pos:     p.fset.Position(stmt.Pos()),
 			desc:    "range over function",

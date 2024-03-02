@@ -1,13 +1,17 @@
 package mingo
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/bobg/errors"
 )
 
 func TestLangChecks(t *testing.T) {
@@ -31,14 +35,20 @@ func TestLangChecks(t *testing.T) {
 
 	sort.Ints(versions)
 
-	var earlierCode string
+	var (
+		earlierCode    string
+		earlierImports []string
+	)
 
 	for _, min := range versions {
 		minstr := strconv.Itoa(min)
 
-		t.Run(minstr, func(t *testing.T) {
-			var code string
+		var (
+			thisVersionCode    string
+			thisVersionImports []string
+		)
 
+		t.Run(minstr, func(t *testing.T) {
 			entries, err := os.ReadDir("_testdata/" + minstr)
 			if err != nil {
 				t.Fatal(err)
@@ -51,17 +61,24 @@ func TestLangChecks(t *testing.T) {
 					continue
 				}
 				t.Run(strings.TrimSuffix(entry.Name(), ".go"), func(t *testing.T) {
-					content, err := os.ReadFile("_testdata/" + minstr + "/" + entry.Name())
+					filename := "_testdata/" + minstr + "/" + entry.Name()
+
+					code, imports, err := readGoFile(filename)
 					if err != nil {
 						t.Fatal(err)
 					}
-					code += string(content)
 
 					tmpdir, err := os.MkdirTemp("", "mingo")
 					if err != nil {
 						t.Fatal(err)
 					}
-					defer os.RemoveAll(tmpdir)
+					var rmdir bool
+					defer func() {
+						if rmdir {
+							t.Logf("xxx removing %s", tmpdir)
+							os.RemoveAll(tmpdir)
+						}
+					}()
 
 					gomod := filepath.Join(tmpdir, "go.mod")
 					if err := os.WriteFile(gomod, []byte("module foo\ngo 1.22.0\n"), 0644); err != nil {
@@ -76,8 +93,21 @@ func TestLangChecks(t *testing.T) {
 					t.Log(tmpfile.Name())
 
 					fmt.Fprint(tmpfile, "package foo\n\n")
+
+					combinedImports := append(earlierImports, imports...)
+					sort.Strings(combinedImports)
+					combinedImports = slices.Compact(combinedImports)
+
+					if len(combinedImports) > 0 {
+						fmt.Fprint(tmpfile, "import (\n")
+						for _, imp := range combinedImports {
+							fmt.Fprintf(tmpfile, "\t%q\n", imp)
+						}
+						fmt.Fprint(tmpfile, ")\n\n")
+					}
+
 					fmt.Fprint(tmpfile, earlierCode)
-					if _, err := tmpfile.Write(content); err != nil {
+					if _, err := fmt.Fprint(tmpfile, code); err != nil {
 						t.Fatal(err)
 					}
 					if err = tmpfile.Close(); err != nil {
@@ -92,15 +122,70 @@ func TestLangChecks(t *testing.T) {
 						}
 						if res.Version() != min {
 							t.Errorf("got %d, want %d", res.Version(), min)
+						} else {
+							rmdir = true
 						}
 					})
 
 					// TODO: check the same thing using Scanner.Analyzer
 					// (when the API in https://github.com/golang/go/issues/61324 lands)
+
+					thisVersionCode += code
+					thisVersionImports = append(thisVersionImports, imports...)
 				})
 			}
-
-			earlierCode += code
 		})
+
+		earlierCode += thisVersionCode
+
+		earlierImports = append(earlierImports, thisVersionImports...)
+		sort.Strings(earlierImports)
+		earlierImports = slices.Compact(earlierImports)
 	}
+}
+
+func readGoFile(filename string) (string, []string, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "opening %s", filename)
+	}
+	defer f.Close()
+
+	var (
+		sc        = bufio.NewScanner(f)
+		inImports bool
+		code      strings.Builder
+		imports   []string
+	)
+	for sc.Scan() {
+		line := sc.Text()
+		if inImports {
+			if strings.HasPrefix(line, ")") {
+				inImports = false
+				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) == 0 {
+				continue
+			}
+			imp := fields[0] // No import alias allowed
+			imports = append(imports, imp)
+			continue
+		}
+		if strings.HasPrefix(line, "import (") {
+			inImports = true
+			continue
+		}
+		if strings.HasPrefix(line, "import ") {
+			fields := strings.Fields(line)
+			imp := fields[1] // No import alias allowed
+			imports = append(imports, imp)
+			continue
+		}
+		if strings.HasPrefix(line, "package ") {
+			continue
+		}
+		fmt.Fprintln(&code, line)
+	}
+	return code.String(), imports, errors.Wrapf(sc.Err(), "scanning %s", filename)
 }

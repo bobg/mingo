@@ -167,10 +167,10 @@ func (s *Scanner) verbosef(format string, args ...any) {
 	}
 }
 
-func (s *Scanner) greater(result Result) bool {
-	if result.Version() > s.Result.Version() {
-		s.Result = result
-		s.verbosef("%s", result)
+func (s *Scanner) result(r Result) bool {
+	if r.Version() > s.Result.Version() {
+		s.Result = r
+		s.verbosef("%s", r)
 	}
 	return s.isMax()
 }
