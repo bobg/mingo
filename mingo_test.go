@@ -122,6 +122,45 @@ func TestLangChecks(t *testing.T) {
 					// TODO: check the same thing using Scanner.Analyzer
 					// (when the API in https://github.com/golang/go/issues/61324 lands)
 
+					t.Run("CheckDir_ok", func(t *testing.T) {
+						s := Scanner{Check: true}
+						_, err := s.ScanDir(tmpdir)
+						if err != nil {
+							t.Errorf("got error %s, want no error", err)
+						}
+					})
+
+					if min < 2 {
+						return
+					}
+
+					// Replace the go.mod in tmpdir with one whose go declaration is a version too low.
+					t.Run("CheckDir_bad", func(t *testing.T) {
+						gomodStr := fmt.Sprintf("module foo\ngo 1.%d\n", min-1)
+						if err := os.WriteFile(gomod, []byte(gomodStr), 0644); err != nil {
+							t.Fatal(err)
+						}
+						s := Scanner{Check: true}
+						_, err := s.ScanDir(tmpdir)
+						if err == nil {
+							t.Error("got no error but wanted one")
+							return
+						}
+
+						var (
+							verr VersionError
+							lerr LoadError
+						)
+						switch {
+						case errors.As(err, &lerr):
+							// Do nothing
+						case errors.As(err, &verr):
+							// Do nothing
+						default:
+							t.Errorf("got error %s, want a LoadError or VersionError", err)
+						}
+					})
+
 					thisVersionCode += code
 					thisVersionImports = append(thisVersionImports, imports...)
 				})

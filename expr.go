@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// Bool result tells whether the max known Go version has been reached.
 func (p *pkgScanner) expr(expr ast.Expr) (bool, error) {
 	return p.exprHelper(expr, false)
 }

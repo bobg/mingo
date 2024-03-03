@@ -45,7 +45,8 @@ The flags and their meanings are:
 | -v         | Run verbosely                                                                 |
 | -deps      | Dependencies to include - `all` (the default), `direct` only, or `none`       |
 | -tests     | Include tests                                                                 |
-| -check     | Check that the module declares the right version of Go                        |
+| -check     | Check that go.mod declares the right version of Go or higher                  |
+| -strict    | With -check, require go.mod to declare exactly the right version of Go        |
 | -api API   | Find the Go API files in the directory API instead of the default $GOROOT/api |
 
 Normal output is the lowest minor version of Go

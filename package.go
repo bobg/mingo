@@ -15,6 +15,7 @@ type pkgScanner struct {
 	info    *types.Info
 }
 
+// Bool result tells whether the max known Go version has been reached.
 func (p *pkgScanner) file(file *ast.File) (bool, error) {
 	for _, decl := range file.Decls {
 		if isMax, err := p.decl(decl); err != nil || isMax {

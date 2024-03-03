@@ -7,6 +7,7 @@ import (
 	"go/types"
 )
 
+// Bool result tells whether the max known Go version has been reached.
 func (p *pkgScanner) stmt(stmt ast.Stmt) (bool, error) {
 	if stmt == nil {
 		return false, nil
