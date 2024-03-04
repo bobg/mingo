@@ -152,6 +152,10 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 	return s.Result, nil
 }
 
+func (s *Scanner) reset() {
+	s.Result = intResult(0)
+}
+
 func (s *Scanner) scanPackage(pkg *packages.Package) error {
 	return s.scanPackageHelper(pkg.PkgPath, pkg.Fset, pkg.TypesInfo, pkg.Syntax)
 }

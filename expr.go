@@ -140,14 +140,12 @@ func (p *pkgScanner) basicLit(lit *ast.BasicLit) (bool, error) {
 
 func (p *pkgScanner) funcLit(lit *ast.FuncLit) (bool, error) {
 	if lit.Type.TypeParams != nil && len(lit.Type.TypeParams.List) > 0 {
-		result := posResult{
+		// I think this case is impossible.
+		p.result(posResult{
 			version: 18,
 			pos:     p.fset.Position(lit.Pos()),
 			desc:    "generic function literal",
-		}
-		if p.result(result) {
-			return true, nil
-		}
+		})
 	}
 
 	return p.funcBody(lit.Body)
@@ -189,14 +187,11 @@ func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) (bool, error) {
 
 		if kv, ok := elt.(*ast.KeyValueExpr); ok {
 			if ck, ok := kv.Key.(*ast.CompositeLit); ok && ck.Type == nil {
-				res := posResult{
+				p.result(posResult{
 					version: 5,
 					pos:     p.fset.Position(ck.Pos()),
 					desc:    "composite literal with composite-type key and no explicit type",
-				}
-				if p.result(res) {
-					return true, nil
-				}
+				})
 			}
 		}
 	}
@@ -215,14 +210,11 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) (bool,
 
 	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
 		if _, ok := obj.Type().(*types.Signature); ok && !isCallFun {
-			res := posResult{
+			p.result(posResult{
 				version: 1,
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    "method used as value",
-			}
-			if p.result(res) {
-				return true, nil
-			}
+			})
 		}
 
 		pkg := obj.Pkg()
@@ -281,14 +273,11 @@ func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) (bool, error) {
 		return isMax, err
 	}
 	if p.isTypeExpr(expr.Index) {
-		res := posResult{
+		p.result(posResult{
 			version: 18,
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    "generic instantiation",
-		}
-		if p.result(res) {
-			return true, nil
-		}
+		})
 	}
 	return p.expr(expr.Index)
 }
@@ -299,14 +288,11 @@ func (p *pkgScanner) indexListExpr(expr *ast.IndexListExpr) (bool, error) {
 	}
 	for _, index := range expr.Indices {
 		if p.isTypeExpr(index) {
-			res := posResult{
+			p.result(posResult{
 				version: 18,
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    "generic instantiation",
-			}
-			if p.result(res) {
-				return true, nil
-			}
+			})
 		}
 		if isMax, err := p.expr(index); err != nil || isMax {
 			return isMax, err
@@ -317,14 +303,11 @@ func (p *pkgScanner) indexListExpr(expr *ast.IndexListExpr) (bool, error) {
 
 func (p *pkgScanner) sliceExpr(expr *ast.SliceExpr) (bool, error) {
 	if expr.Slice3 {
-		result := posResult{
+		p.result(posResult{
 			version: 5,
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    "slice expression with 3 indices",
-		}
-		if p.result(result) {
-			return true, nil
-		}
+		})
 	}
 
 	if isMax, err := p.expr(expr.X); err != nil || isMax {
@@ -458,14 +441,11 @@ func (p *pkgScanner) starExpr(expr *ast.StarExpr) (bool, error) {
 
 func (p *pkgScanner) unaryExpr(expr *ast.UnaryExpr) (bool, error) {
 	if expr.Op == token.TILDE {
-		res := posResult{
+		p.result(posResult{
 			version: 18,
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    "tilde operator",
-		}
-		if p.result(res) {
-			return true, nil
-		}
+		})
 	}
 	return p.expr(expr.X)
 }
@@ -474,14 +454,11 @@ func (p *pkgScanner) binaryExpr(expr *ast.BinaryExpr) (bool, error) {
 	switch expr.Op {
 	case token.SHL, token.SHR:
 		if p.isSigned(expr.Y) {
-			res := posResult{
+			p.result(posResult{
 				version: 13,
 				pos:     p.fset.Position(expr.Pos()),
 				desc:    "signed shift count",
-			}
-			if p.result(res) {
-				return true, nil
-			}
+			})
 		}
 	}
 	if isMax, err := p.expr(expr.X); err != nil || isMax {
@@ -510,14 +487,11 @@ func (p *pkgScanner) structType(expr *ast.StructType) (bool, error) {
 
 func (p *pkgScanner) funcType(expr *ast.FuncType) (bool, error) {
 	if expr.TypeParams != nil && len(expr.TypeParams.List) > 0 {
-		result := posResult{
+		p.result(posResult{
 			version: 18,
 			pos:     p.fset.Position(expr.Pos()),
 			desc:    "generic function type",
-		}
-		if p.result(result) {
-			return false, nil
-		}
+		})
 	}
 	if isMax, err := p.fieldList(expr.Params); err != nil || isMax {
 		return isMax, err
@@ -532,14 +506,11 @@ func (p *pkgScanner) interfaceType(expr *ast.InterfaceType) (bool, error) {
 				return true, nil
 			}
 			if !intf.IsMethodSet() {
-				res := posResult{
+				p.result(posResult{
 					version: 18,
 					pos:     p.fset.Position(expr.Pos()),
 					desc:    "interface containing type terms",
-				}
-				if p.result(res) {
-					return true, nil
-				}
+				})
 			}
 		}
 	}

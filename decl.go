@@ -24,14 +24,11 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) (bool, error) {
 
 	// Generics are supported in Go 1.18 and later.
 	if decl.Type.TypeParams != nil && len(decl.Type.TypeParams.List) > 0 {
-		declResult := posResult{
+		p.result(posResult{
 			version: 18,
 			pos:     p.fset.Position(decl.Pos()),
 			desc:    "generic func decl",
-		}
-		if p.result(declResult) {
-			return true, nil
-		}
+		})
 	}
 
 	if isMax, err := p.fieldList(decl.Type.Params); err != nil || isMax {
@@ -95,26 +92,20 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) (bool, error) {
 
 func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) (bool, error) {
 	if spec.Assign.IsValid() {
-		res := posResult{
+		p.result(posResult{
 			version: 9,
 			pos:     p.fset.Position(spec.Pos()),
 			desc:    "type alias",
-		}
-		if p.result(res) {
-			return true, nil
-		}
+		})
 	}
 
 	// Generics are supported in Go 1.18 and later.
 	if spec.TypeParams != nil && len(spec.TypeParams.List) > 0 {
-		declResult := posResult{
+		p.result(posResult{
 			version: 18,
 			pos:     p.fset.Position(spec.Pos()),
 			desc:    "generic type decl",
-		}
-		if p.result(declResult) {
-			return true, nil
-		}
+		})
 	}
 	return p.expr(spec.Type)
 }

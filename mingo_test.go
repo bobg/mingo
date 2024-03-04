@@ -74,11 +74,6 @@ func TestLangChecks(t *testing.T) {
 					}
 					defer os.RemoveAll(tmpdir)
 
-					gomod := filepath.Join(tmpdir, "go.mod")
-					if err := os.WriteFile(gomod, []byte("module foo\ngo 1.22.0\n"), 0644); err != nil {
-						t.Fatal(err)
-					}
-
 					tmpfile, err := os.Create(filepath.Join(tmpdir, "foo.go"))
 					if err != nil {
 						t.Fatal(err)
@@ -108,58 +103,79 @@ func TestLangChecks(t *testing.T) {
 						t.Fatal(err)
 					}
 
-					t.Run("ScanDir", func(t *testing.T) {
+					withGoMod(t, tmpdir, min, func() {
 						s := Scanner{Verbose: testing.Verbose()}
-						res, err := s.ScanDir(tmpdir)
-						if err != nil {
-							t.Fatal(err)
-						}
-						if res.Version() != min {
-							t.Errorf("got %d, want %d", res.Version(), min)
-						}
-					})
+						t.Run("ScanDir", func(t *testing.T) {
+							res, err := s.ScanDir(tmpdir)
+							if err != nil {
+								t.Fatal(err)
+							}
+							if res.Version() != min {
+								t.Errorf("got %d, want %d", res.Version(), min)
+							}
+						})
 
-					// TODO: check the same thing using Scanner.Analyzer
-					// (when the API in https://github.com/golang/go/issues/61324 lands)
-
-					t.Run("CheckDir_ok", func(t *testing.T) {
-						s := Scanner{Check: true}
-						_, err := s.ScanDir(tmpdir)
-						if err != nil {
-							t.Errorf("got error %s, want no error", err)
-						}
-					})
-
-					if min < 2 {
-						return
-					}
-
-					// Replace the go.mod in tmpdir with one whose go declaration is a version too low.
-					t.Run("CheckDir_bad", func(t *testing.T) {
-						gomodStr := fmt.Sprintf("module foo\ngo 1.%d\n", min-1)
-						if err := os.WriteFile(gomod, []byte(gomodStr), 0644); err != nil {
-							t.Fatal(err)
-						}
-						s := Scanner{Check: true}
-						_, err := s.ScanDir(tmpdir)
-						if err == nil {
-							t.Error("got no error but wanted one")
+						if min == 0 {
 							return
 						}
 
-						var (
-							verr VersionError
-							lerr LoadError
-						)
-						switch {
-						case errors.As(err, &lerr):
-							// Do nothing
-						case errors.As(err, &verr):
-							// Do nothing
-						default:
-							t.Errorf("got error %s, want a LoadError or VersionError", err)
-						}
+						// Strict checking should pass with go.mod declaring the min version.
+						t.Run("StrictCheckOK", func(t *testing.T) {
+							s.reset()
+							s.Check = true
+							s.Strict = true
+
+							_, err := s.ScanDir(tmpdir)
+							if err != nil {
+								t.Errorf("got error %s, want no error", err)
+							}
+						})
 					})
+
+					// Non-strict checking should pass with go.mod declaring a too-high version.
+					if min < 22 {
+						withGoMod(t, tmpdir, min+1, func() {
+							s := Scanner{
+								Verbose: testing.Verbose(),
+								Check:   true,
+							}
+							t.Run("CheckOK", func(t *testing.T) {
+								_, err := s.ScanDir(tmpdir)
+								if err != nil {
+									t.Errorf("got error %s, want no error", err)
+								}
+							})
+						})
+					}
+
+					if min >= 2 {
+						// Checking should fail with go.mod declaring a too-low version.
+						withGoMod(t, tmpdir, min-1, func() {
+							s := Scanner{
+								Verbose: testing.Verbose(),
+								Check:   true,
+							}
+							t.Run("CheckFail", func(t *testing.T) {
+								_, err := s.ScanDir(tmpdir)
+
+								var (
+									verr VersionError
+									lerr LoadError
+								)
+								switch {
+								case errors.As(err, &lerr):
+									// Do nothing
+								case errors.As(err, &verr):
+									// Do nothing
+								default:
+									t.Errorf("got error %v, want a LoadError or VersionError", err)
+								}
+							})
+						})
+					}
+
+					// TODO: check the same things using Scanner.Analyzer
+					// (when the API in https://github.com/golang/go/issues/61324 lands)
 
 					thisVersionCode += code
 					thisVersionImports = append(thisVersionImports, imports...)
@@ -233,4 +249,21 @@ func readGoFile(filename string) (string, []string, error) {
 		fmt.Fprintln(&code, line)
 	}
 	return code.String(), imports, errors.Wrapf(sc.Err(), "scanning %s", filename)
+}
+
+func withGoMod(t *testing.T, tmpdir string, ver int, f func()) {
+	t.Helper()
+
+	if ver == 0 {
+		ver = 1 // Work around https://github.com/golang/go/issues/65528
+	}
+
+	gomod := filepath.Join(tmpdir, "go.mod")
+	gomodStr := fmt.Sprintf("module foo\ngo 1.%d\n", ver)
+	if err := os.WriteFile(gomod, []byte(gomodStr), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(gomod)
+
+	f()
 }

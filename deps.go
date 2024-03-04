@@ -93,11 +93,11 @@ func (s *Scanner) scanDep(mv module.Version) error {
 	}
 	parts := strings.SplitN(parsed.Go.Version, ".", 3)
 	if len(parts) < 2 {
-		return errors.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
+		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
 	}
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return errors.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
+		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
 	}
 
 	s.result(depResult{
