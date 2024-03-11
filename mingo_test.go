@@ -254,10 +254,6 @@ func readGoFile(filename string) (string, []string, error) {
 func withGoMod(t *testing.T, tmpdir string, ver int, f func()) {
 	t.Helper()
 
-	if ver == 0 {
-		ver = 1 // Work around https://github.com/golang/go/issues/65528
-	}
-
 	gomod := filepath.Join(tmpdir, "go.mod")
 	gomodStr := fmt.Sprintf("module foo\ngo 1.%d\n", ver)
 	if err := os.WriteFile(gomod, []byte(gomodStr), 0644); err != nil {
