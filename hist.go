@@ -3,6 +3,7 @@ package mingo
 import (
 	"bufio"
 	"embed"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -174,7 +175,7 @@ func readHistVersion(h *history, fsys fs.FS, filename string, v int) error {
 		} else if m := typeRegex.FindStringSubmatch(line); len(m) > 0 { // This one must come last.
 			match2(h, m[1], m[3], v)
 		} else {
-			return errors.Errorf("unrecognized line %s", line)
+			return fmt.Errorf("unrecognized line %s", line)
 		}
 	}
 	return errors.Wrapf(sc.Err(), "scanning %s", filename)

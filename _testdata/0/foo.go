@@ -128,3 +128,9 @@ foo:
 
 	return 0
 }
+
+func zero17(x int) int {
+	return x + 1
+}
+
+var zero18 = zero17(1)

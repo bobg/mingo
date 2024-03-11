@@ -1,6 +1,6 @@
 module github.com/bobg/mingo
 
-go 1.22
+go 1.22.1 // Required for fix to https://github.com/golang/go/issues/65619.
 
 require (
 	github.com/bobg/errors v0.10.0

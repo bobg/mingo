@@ -93,7 +93,7 @@ and [these three types](https://cs.opensource.google/go/go/+/master:src/go/ast/a
 We don’t care about `BadDecl`,
 which is a placeholder for declarations that couldn’t be parsed properly.
 If there is any unparseable code,
-Mingo will already have returned an error ([here](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/scan.go#L76-L85)).
+mingo will already have returned an error ([here](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/scan.go#L76-L85)).
 So [pkgScanner.decl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L9) does a type switch,
 calling [pkgScanner.funcDecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L19) for function declarations
 and [pkgScanner.genDecl](https://github.com/bobg/mingo/blob/562b72282874015100556d6cecff601d9c9fd07a/decl.go#L77)

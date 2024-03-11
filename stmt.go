@@ -7,16 +7,17 @@ import (
 	"go/types"
 )
 
-func (p *pkgScanner) stmt(stmt ast.Stmt) error {
+// Bool result tells whether the max known Go version has been reached.
+func (p *pkgScanner) stmt(stmt ast.Stmt) (bool, error) {
 	if stmt == nil {
-		return nil
+		return false, nil
 	}
 
 	switch stmt := stmt.(type) {
 	case *ast.DeclStmt:
 		return p.declStmt(stmt)
 	case *ast.EmptyStmt:
-		return nil
+		return false, nil
 	case *ast.LabeledStmt:
 		return p.labeledStmt(stmt)
 	case *ast.ExprStmt:
@@ -34,7 +35,7 @@ func (p *pkgScanner) stmt(stmt ast.Stmt) error {
 	case *ast.ReturnStmt:
 		return p.returnStmt(stmt)
 	case *ast.BranchStmt:
-		return nil
+		return false, nil
 	case *ast.BlockStmt:
 		return p.blockStmt(stmt)
 	case *ast.IfStmt:
@@ -54,41 +55,38 @@ func (p *pkgScanner) stmt(stmt ast.Stmt) error {
 	case *ast.RangeStmt:
 		return p.rangeStmt(stmt)
 	default:
-		return fmt.Errorf("unknown statement type %T", stmt)
+		return false, fmt.Errorf("unknown statement type %T", stmt)
 	}
 }
 
-func (p *pkgScanner) declStmt(stmt *ast.DeclStmt) error {
+func (p *pkgScanner) declStmt(stmt *ast.DeclStmt) (bool, error) {
 	return p.decl(stmt.Decl)
 }
 
-func (p *pkgScanner) labeledStmt(stmt *ast.LabeledStmt) error {
+func (p *pkgScanner) labeledStmt(stmt *ast.LabeledStmt) (bool, error) {
 	return p.stmt(stmt.Stmt)
 }
 
-func (p *pkgScanner) exprStmt(stmt *ast.ExprStmt) error {
+func (p *pkgScanner) exprStmt(stmt *ast.ExprStmt) (bool, error) {
 	return p.expr(stmt.X)
 }
 
-func (p *pkgScanner) sendStmt(stmt *ast.SendStmt) error {
-	if err := p.expr(stmt.Chan); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
+func (p *pkgScanner) sendStmt(stmt *ast.SendStmt) (bool, error) {
+	if isMax, err := p.expr(stmt.Chan); err != nil || isMax {
+		return isMax, err
 	}
 	return p.expr(stmt.Value)
 }
 
-func (p *pkgScanner) incDecStmt(stmt *ast.IncDecStmt) error {
+func (p *pkgScanner) incDecStmt(stmt *ast.IncDecStmt) (bool, error) {
 	return p.expr(stmt.X)
 }
 
-func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) error {
+func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) (bool, error) {
 	switch stmt.Tok {
 	case token.SHL_ASSIGN, token.SHR_ASSIGN:
 		if len(stmt.Rhs) == 1 && p.isSigned(stmt.Rhs[0]) {
-			p.greater(posResult{
+			p.result(posResult{
 				version: 13,
 				pos:     p.fset.Position(stmt.Pos()),
 				desc:    "signed shift count",
@@ -97,222 +95,164 @@ func (p *pkgScanner) assignStmt(stmt *ast.AssignStmt) error {
 	}
 
 	for _, expr := range stmt.Lhs {
-		if err := p.expr(expr); err != nil {
-			return err
-		}
-		if p.isMax() {
-			return nil
+		if isMax, err := p.expr(expr); err != nil || isMax {
+			return isMax, err
 		}
 	}
 	for _, expr := range stmt.Rhs {
-		if err := p.expr(expr); err != nil {
-			return err
-		}
-		if p.isMax() {
-			return nil
+		if isMax, err := p.expr(expr); err != nil || isMax {
+			return isMax, err
 		}
 	}
-	return nil
+	return false, nil
 }
 
-func (p *pkgScanner) goStmt(stmt *ast.GoStmt) error {
+func (p *pkgScanner) goStmt(stmt *ast.GoStmt) (bool, error) {
 	return p.callExpr(stmt.Call)
 }
 
-func (p *pkgScanner) deferStmt(stmt *ast.DeferStmt) error {
+func (p *pkgScanner) deferStmt(stmt *ast.DeferStmt) (bool, error) {
 	return p.callExpr(stmt.Call)
 }
 
-func (p *pkgScanner) returnStmt(stmt *ast.ReturnStmt) error {
+func (p *pkgScanner) returnStmt(stmt *ast.ReturnStmt) (bool, error) {
 	for _, expr := range stmt.Results {
-		if err := p.expr(expr); err != nil {
-			return err
-		}
-		if p.isMax() {
-			return nil
+		if isMax, err := p.expr(expr); err != nil || isMax {
+			return isMax, err
 		}
 	}
-	return nil
+	return false, nil
 }
 
-func (p *pkgScanner) blockStmt(stmt *ast.BlockStmt) error {
+func (p *pkgScanner) blockStmt(stmt *ast.BlockStmt) (bool, error) {
 	for _, stmt := range stmt.List {
-		if err := p.stmt(stmt); err != nil {
-			return err
-		}
-		if p.isMax() {
-			return nil
+		if isMax, err := p.stmt(stmt); err != nil || isMax {
+			return isMax, err
 		}
 	}
-
-	return nil
+	return false, nil
 }
 
-func (p *pkgScanner) ifStmt(stmt *ast.IfStmt) error {
-	if err := p.expr(stmt.Cond); err != nil {
-		return err
+func (p *pkgScanner) ifStmt(stmt *ast.IfStmt) (bool, error) {
+	if isMax, err := p.expr(stmt.Cond); err != nil || isMax {
+		return isMax, err
 	}
-	if p.isMax() {
-		return nil
-	}
-	if err := p.blockStmt(stmt.Body); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
+	if isMax, err := p.blockStmt(stmt.Body); err != nil || isMax {
+		return isMax, err
 	}
 	return p.stmt(stmt.Else)
 }
 
-func (p *pkgScanner) caseClause(stmt *ast.CaseClause) error {
+func (p *pkgScanner) caseClause(stmt *ast.CaseClause) (bool, error) {
 	for _, expr := range stmt.List {
-		if err := p.expr(expr); err != nil {
-			return err
-		}
-		if p.isMax() {
-			return nil
+		if isMax, err := p.expr(expr); err != nil || isMax {
+			return isMax, err
 		}
 	}
 	for _, stmt := range stmt.Body {
-		if err := p.stmt(stmt); err != nil {
-			return err
-		}
-		if p.isMax() {
-			return nil
+		if isMax, err := p.stmt(stmt); err != nil || isMax {
+			return isMax, err
 		}
 	}
-	return nil
+	return false, nil
 }
 
-func (p *pkgScanner) switchStmt(stmt *ast.SwitchStmt) error {
-	if err := p.stmt(stmt.Init); err != nil {
-		return err
+func (p *pkgScanner) switchStmt(stmt *ast.SwitchStmt) (bool, error) {
+	if isMax, err := p.stmt(stmt.Init); err != nil || isMax {
+		return isMax, err
 	}
-	if p.isMax() {
-		return nil
-	}
-	if err := p.expr(stmt.Tag); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
+	if isMax, err := p.expr(stmt.Tag); err != nil || isMax {
+		return isMax, err
 	}
 	return p.blockStmt(stmt.Body)
 }
 
-func (p *pkgScanner) typeSwitchStmt(stmt *ast.TypeSwitchStmt) error {
-	if err := p.stmt(stmt.Init); err != nil {
-		return err
+func (p *pkgScanner) typeSwitchStmt(stmt *ast.TypeSwitchStmt) (bool, error) {
+	if isMax, err := p.stmt(stmt.Init); err != nil || isMax {
+		return isMax, err
 	}
-	if p.isMax() {
-		return nil
-	}
-	if err := p.stmt(stmt.Assign); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
+	if isMax, err := p.stmt(stmt.Assign); err != nil || isMax {
+		return isMax, err
 	}
 	return p.blockStmt(stmt.Body)
 }
 
-func (p *pkgScanner) commClause(stmt *ast.CommClause) error {
-	if err := p.stmt(stmt.Comm); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
+func (p *pkgScanner) commClause(stmt *ast.CommClause) (bool, error) {
+	if isMax, err := p.stmt(stmt.Comm); err != nil || isMax {
+		return isMax, err
 	}
 	for _, stmt := range stmt.Body {
-		if err := p.stmt(stmt); err != nil {
-			return err
-		}
-		if p.isMax() {
-			return nil
+		if isMax, err := p.stmt(stmt); err != nil || isMax {
+			return isMax, err
 		}
 	}
-	return nil
+	return false, nil
 }
 
-func (p *pkgScanner) selectStmt(stmt *ast.SelectStmt) error {
+func (p *pkgScanner) selectStmt(stmt *ast.SelectStmt) (bool, error) {
 	return p.blockStmt(stmt.Body)
 }
 
-func (p *pkgScanner) forStmt(stmt *ast.ForStmt) error {
-	if err := p.stmt(stmt.Init); err != nil {
-		return err
+func (p *pkgScanner) forStmt(stmt *ast.ForStmt) (bool, error) {
+	if isMax, err := p.stmt(stmt.Init); err != nil || isMax {
+		return isMax, err
 	}
-	if p.isMax() {
-		return nil
+	if isMax, err := p.expr(stmt.Cond); err != nil || isMax {
+		return isMax, err
 	}
-	if err := p.expr(stmt.Cond); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
-	}
-	if err := p.stmt(stmt.Post); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
+	if isMax, err := p.stmt(stmt.Post); err != nil || isMax {
+		return isMax, err
 	}
 	return p.blockStmt(stmt.Body)
 }
 
-func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) error {
+func (p *pkgScanner) rangeStmt(stmt *ast.RangeStmt) (bool, error) {
 	if stmt.Key == nil && stmt.Value == nil {
-		p.greater(posResult{
+		p.result(posResult{
 			version: 4,
 			pos:     p.fset.Position(stmt.Pos()),
 			desc:    `variable-free "for range" statement`,
 		})
 	}
 
-	if err := p.expr(stmt.Key); err != nil {
-		return err
+	if isMax, err := p.expr(stmt.Key); err != nil || isMax {
+		return isMax, err
 	}
-	if p.isMax() {
-		return nil
+	if isMax, err := p.expr(stmt.Value); err != nil || isMax {
+		return isMax, err
 	}
-	if err := p.expr(stmt.Value); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
-	}
-	if err := p.expr(stmt.X); err != nil {
-		return err
-	}
-	if p.isMax() {
-		return nil
+	if isMax, err := p.expr(stmt.X); err != nil || isMax {
+		return isMax, err
 	}
 
 	tv, ok := p.info.Types[stmt.X]
 	if !ok {
-		return fmt.Errorf("no type info for range expression at %s", p.fset.Position(stmt.X.Pos()))
+		return false, fmt.Errorf("no type info for range expression at %s", p.fset.Position(stmt.X.Pos()))
 	}
 	switch typ := tv.Type.Underlying().(type) {
 	case *types.Basic:
 		switch typ.Kind() {
 		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 			// TODO: all integer kinds, or just some?
-			p.greater(posResult{
+			res := posResult{
 				version: 22,
 				pos:     p.fset.Position(stmt.Pos()),
 				desc:    "range over integer",
-			})
+			}
+			if p.result(res) {
+				return true, nil
+			}
 		}
 
 	case *types.Signature:
-		p.greater(posResult{
+		res := posResult{
 			version: 23,
 			pos:     p.fset.Position(stmt.Pos()),
 			desc:    "range over function",
-		})
-	}
-	if p.isMax() {
-		return nil
+		}
+		if p.result(res) {
+			return true, nil
+		}
 	}
 
 	return p.blockStmt(stmt.Body)
