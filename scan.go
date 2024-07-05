@@ -226,15 +226,21 @@ func (s *Scanner) isMax() bool {
 	return s.Result.Version() >= s.h.max
 }
 
-var goCache = os.Getenv("GOCACHE")
-
 func isCacheFile(filename string) (bool, error) {
-	if goCache == "" {
-		return false, nil
+	cacheDir := os.Getenv("GOCACHE")
+	if cacheDir == "" {
+		var err error
+		cacheDir, err = os.UserCacheDir()
+		if err != nil {
+			return false, errors.Wrap(err, "getting user cache directory")
+		}
+		if cacheDir == "" {
+			return false, nil
+		}
 	}
-	rel, err := filepath.Rel(goCache, filename)
+	rel, err := filepath.Rel(cacheDir, filename)
 	if err != nil {
-		return false, errors.Wrapf(err, "computing relative path from %s to %s", goCache, filename)
+		return false, errors.Wrapf(err, "computing relative path from %s to %s", cacheDir, filename)
 	}
 	return !strings.HasPrefix(rel, "../"), nil
 }
