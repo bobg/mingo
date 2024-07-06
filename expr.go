@@ -386,6 +386,10 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 		return nil
 	}
 
+	return p.callArgs(expr)
+}
+
+func (p *pkgScanner) callArgs(expr *ast.CallExpr) error {
 	for _, arg := range expr.Args {
 		if err := p.expr(arg); err != nil {
 			return err
@@ -394,7 +398,6 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) error {
 			return nil
 		}
 	}
-
 	return nil
 }
 
@@ -465,7 +468,8 @@ func (p *pkgScanner) builtinCall(expr *ast.CallExpr) error {
 		}
 		p.greater(result)
 	}
-	return nil
+
+	return p.callArgs(expr)
 }
 
 func getID(expr ast.Expr) *ast.Ident {

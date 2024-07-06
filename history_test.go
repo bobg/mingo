@@ -31,6 +31,11 @@ func TestHistory(t *testing.T) {
 		pkgpath: "crypto/elliptic",
 		ident:   "Curve",
 		want:    0,
+	}, {
+		// https://github.com/bobg/mingo/issues/14
+		pkgpath: "io",
+		ident:   "NopCloser",
+		want:    16,
 	}}
 
 	for _, tc := range cases {

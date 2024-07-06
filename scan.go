@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"go/types"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -142,6 +143,13 @@ func (s *Scanner) scanPackageHelper(pkgpath string, fset *token.FileSet, info *t
 
 	for _, file := range files {
 		filename := p.fset.Position(file.Pos()).Filename
+		isInCache, err := isCacheFile(filename)
+		if err != nil {
+			return errors.Wrapf(err, "checking whether %s is in GOCACHE", filename)
+		}
+		if isInCache {
+			continue
+		}
 		if err := p.file(file); err != nil {
 			return errors.Wrapf(err, "scanning file %s", filename)
 		}
@@ -216,4 +224,23 @@ func (s *Scanner) ensureHistory() error {
 // Prereq: e.ensureHistory has been called.
 func (s *Scanner) isMax() bool {
 	return s.Result.Version() >= s.h.max
+}
+
+func isCacheFile(filename string) (bool, error) {
+	cacheDir := os.Getenv("GOCACHE")
+	if cacheDir == "" {
+		var err error
+		cacheDir, err = os.UserCacheDir()
+		if err != nil {
+			return false, errors.Wrap(err, "getting user cache directory")
+		}
+		if cacheDir == "" {
+			return false, nil
+		}
+	}
+	rel, err := filepath.Rel(cacheDir, filename)
+	if err != nil {
+		return false, errors.Wrapf(err, "computing relative path from %s to %s", cacheDir, filename)
+	}
+	return !strings.HasPrefix(rel, "../"), nil
 }
