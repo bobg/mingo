@@ -116,11 +116,19 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) error {
 
 func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) error {
 	if spec.Assign.IsValid() {
-		p.greater(posResult{
-			version: 9,
-			pos:     p.fset.Position(spec.Pos()),
-			desc:    "type alias",
-		})
+		if spec.TypeParams != nil && len(spec.TypeParams.List) > 0 {
+			p.greater(posResult{
+				version: 24,
+				pos:     p.fset.Position(spec.Pos()),
+				desc:    "generic type alias",
+			})
+		} else {
+			p.greater(posResult{
+				version: 9,
+				pos:     p.fset.Position(spec.Pos()),
+				desc:    "type alias",
+			})
+		}
 	}
 
 	// Generics are supported in Go 1.18 and later.
