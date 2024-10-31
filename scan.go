@@ -22,7 +22,8 @@ type Scanner struct {
 	Indirect bool   // with Deps, include indirect dependencies
 	Verbose  bool   // be verbose
 	Tests    bool   // scan *_test.go files
-	Check    bool   // produce an error if the module declares the wrong version in go.mod
+	Check    bool   // produce an error if the module declares a version in go.mod lower than the computed minimum
+	Strict   bool   // with Check, require the go.mod declaration to be equal to the computed minimum
 	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
 	Result Result
@@ -42,6 +43,20 @@ type VersionError struct {
 
 func (e VersionError) Error() string {
 	return fmt.Sprintf("go.mod declares version 1.%d but computed minimum is 1.%d [%s]", e.Declared, e.Computed.Version(), e.Computed)
+}
+
+// LoadError is the error returned by [Scanner.ScanDir] or [Scanner.ScanPackages] when loading packages fails.
+type LoadError struct {
+	Err  error
+	Path string
+}
+
+func (e LoadError) Error() string {
+	return fmt.Sprintf("loading packages in %s: %s", e.Path, e.Err)
+}
+
+func (e LoadError) Unwrap() error {
+	return e.Err
 }
 
 // ScanDir scans the module in a directory to determine the lowest-numbered version of Go 1.x that can build it.
@@ -78,7 +93,7 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 	var err error
 	for _, pkg := range pkgs {
 		for _, e := range pkg.Errors {
-			err = errors.Join(err, errors.Wrapf(e, "loading package %s", pkg.PkgPath))
+			err = errors.Join(err, LoadError{Err: e, Path: pkg.PkgPath})
 		}
 	}
 	if err != nil {
@@ -118,15 +133,28 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("go.mod has invalid go version %s", pkgs[0].Module.GoVersion)
 		}
-		if s.Result.Version() != declared {
-			return nil, VersionError{
-				Computed: s.Result,
-				Declared: declared,
+		if s.Strict {
+			if s.Result.Version() != declared {
+				return nil, VersionError{
+					Computed: s.Result,
+					Declared: declared,
+				}
+			}
+		} else {
+			if s.Result.Version() > declared {
+				return nil, VersionError{
+					Computed: s.Result,
+					Declared: declared,
+				}
 			}
 		}
 	}
 
 	return s.Result, nil
+}
+
+func (s *Scanner) reset() {
+	s.Result = intResult(0)
 }
 
 func (s *Scanner) scanPackage(pkg *packages.Package) error {
@@ -150,11 +178,8 @@ func (s *Scanner) scanPackageHelper(pkgpath string, fset *token.FileSet, info *t
 		if isInCache {
 			continue
 		}
-		if err := p.file(file); err != nil {
+		if isMax, err := p.file(file); err != nil || isMax {
 			return errors.Wrapf(err, "scanning file %s", filename)
-		}
-		if p.isMax() {
-			break
 		}
 	}
 
@@ -175,10 +200,10 @@ func (s *Scanner) verbosef(format string, args ...any) {
 	}
 }
 
-func (s *Scanner) greater(result Result) bool {
-	if result.Version() > s.Result.Version() {
-		s.Result = result
-		s.verbosef("%s", result)
+func (s *Scanner) result(r Result) bool {
+	if r.Version() > s.Result.Version() {
+		s.Result = r
+		s.verbosef("%s", r)
 	}
 	return s.isMax()
 }

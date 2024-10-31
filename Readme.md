@@ -45,7 +45,8 @@ The flags and their meanings are:
 | -v         | Run verbosely                                                                 |
 | -deps      | Dependencies to include - `all` (the default), `direct` only, or `none`       |
 | -tests     | Include tests                                                                 |
-| -check     | Check that the module declares the right version of Go                        |
+| -check     | Check that go.mod declares the right version of Go or higher                  |
+| -strict    | Check that go.mod declares exactly the right version of Go                    |
 | -api API   | Find the Go API files in the directory API instead of the default $GOROOT/api |
 
 Normal output is the lowest minor version of Go
@@ -53,8 +54,10 @@ Normal output is the lowest minor version of Go
 that is safe to declare in the `go` directive of the module’s `go.mod` file.
 
 Running with `-check` causes mingo to exit with a 0 status code and no output
-if the module declares the correct version of Go,
+if the module’s `go.mod` file declares the correct version of Go or higher,
 or a non-zero status and an error message otherwise.
+Running with `-strict` is similar
+but requires `go.mod` to declare exactly the right version.
 
 Including dependencies with `-deps all` (the default)
 allows `go` directives in imported modules’ `go.mod` files

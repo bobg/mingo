@@ -11,22 +11,24 @@ import (
 
 func main() {
 	var (
-		api     string
-		verbose bool
-		deps    string
-		tests   bool
-		check   bool
+		api, deps                     string
+		check, strict, tests, verbose bool
 	)
 	flag.StringVar(&api, "api", "", "path to api directory")
-	flag.BoolVar(&verbose, "v", false, "be verbose")
 	flag.StringVar(&deps, "deps", "all", "which dependencies to scan (all, direct, none)")
+	flag.BoolVar(&check, "check", false, "check that go.mod declares the right version of Go or higher")
+	flag.BoolVar(&strict, "strict", false, "check that go.mod declares exactly the right version of Go")
 	flag.BoolVar(&tests, "tests", false, "include tests")
-	flag.BoolVar(&check, "check", false, "produce an error if module declares wrong version in go.mod")
+	flag.BoolVar(&verbose, "v", false, "be verbose")
 	flag.Parse()
 
 	dir := "."
 	if flag.NArg() > 0 {
 		dir = flag.Arg(0)
+	}
+
+	if strict {
+		check = true
 	}
 
 	switch deps {
@@ -44,6 +46,7 @@ func main() {
 		Indirect: deps == "all",
 		Tests:    tests,
 		Check:    check,
+		Strict:   strict,
 	}
 
 	result, err := s.ScanDir(dir)

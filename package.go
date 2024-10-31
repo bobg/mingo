@@ -15,20 +15,18 @@ type pkgScanner struct {
 	info    *types.Info
 }
 
-func (p *pkgScanner) file(file *ast.File) error {
+// Bool result tells whether the max known Go version has been reached.
+func (p *pkgScanner) file(file *ast.File) (bool, error) {
 	for _, decl := range file.Decls {
-		if err := p.decl(decl); err != nil {
-			return errors.Wrapf(err, "scanning decl at %s", p.fset.Position(decl.Pos()))
-		}
-		if p.isMax() {
-			break
+		if isMax, err := p.decl(decl); err != nil || isMax {
+			return isMax, errors.Wrapf(err, "scanning decl at %s", p.fset.Position(decl.Pos()))
 		}
 	}
-	return nil
+	return false, nil
 }
 
-func (p *pkgScanner) greater(result Result) bool {
-	return p.s.greater(result)
+func (p *pkgScanner) result(r Result) bool {
+	return p.s.result(r)
 }
 
 func (p *pkgScanner) isMax() bool {
