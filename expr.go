@@ -349,7 +349,7 @@ func (p *pkgScanner) callExpr(expr *ast.CallExpr) (bool, error) {
 	return p.callArgs(expr)
 }
 
-func (p *pkgScanner) callArgs(expr *ast.CallExpr) error {
+func (p *pkgScanner) callArgs(expr *ast.CallExpr) (bool, error) {
 	for _, arg := range expr.Args {
 		if isMax, err := p.expr(arg); err != nil || isMax {
 			return isMax, err
