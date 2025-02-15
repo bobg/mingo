@@ -33,7 +33,7 @@ type Scanner struct {
 }
 
 // Mode is the minimum mode needed when using [packages.Load] to scan packages.
-const Mode = packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule
+const Mode = packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedModule | packages.LoadSyntax
 
 // VersionError is the error returned by [Scanner.ScanDir] or [Scanner.ScanPackages] when [Scanner.Check] is enabled.
 type VersionError struct {
@@ -61,6 +61,16 @@ func (e LoadError) Unwrap() error {
 
 // ScanDir scans the module in a directory to determine the lowest-numbered version of Go 1.x that can build it.
 func (s *Scanner) ScanDir(dir string) (Result, error) {
+	pkgs, err := s.LoadPackages(dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "loading packages")
+	}
+
+	return s.ScanPackages(pkgs)
+}
+
+// LoadPackages loads the packages in a directory.
+func (s *Scanner) LoadPackages(dir string) ([]*packages.Package, error) {
 	if err := s.ensureHistory(); err != nil {
 		return nil, err
 	}
@@ -70,12 +80,7 @@ func (s *Scanner) ScanDir(dir string) (Result, error) {
 		Dir:   dir,
 		Tests: s.Tests,
 	}
-	pkgs, err := packages.Load(conf, "./...")
-	if err != nil {
-		return nil, errors.Wrap(err, "loading packages")
-	}
-
-	return s.ScanPackages(pkgs)
+	return packages.Load(conf, "./...")
 }
 
 // ScanPackages scans the given packages to determine the lowest-numbered version of Go 1.x that can build them.

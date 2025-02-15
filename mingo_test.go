@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/bobg/errors"
+	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/checker"
 )
 
 func TestLangChecks(t *testing.T) {
@@ -104,19 +106,39 @@ func TestLangChecks(t *testing.T) {
 					if _, err := fmt.Fprint(tmpfile, code); err != nil {
 						t.Fatal(err)
 					}
-					if err = tmpfile.Close(); err != nil {
+					if err := tmpfile.Close(); err != nil {
 						t.Fatal(err)
 					}
 
 					withGoMod(t, tmpdir, min, func() {
 						s := Scanner{Verbose: testing.Verbose()}
-						t.Run("ScanDir", func(t *testing.T) {
-							res, err := s.ScanDir(tmpdir)
+						pkgs, err := s.LoadPackages(tmpdir)
+						if err != nil {
+							t.Fatal(err)
+						}
+						t.Run("ScanPackages", func(t *testing.T) {
+							res, err := s.ScanPackages(pkgs)
 							if err != nil {
 								t.Fatal(err)
 							}
 							if res.Version() != min {
 								t.Errorf("got %d, want %d", res.Version(), min)
+							}
+						})
+						t.Run("ScanPackagesWithAnalyzer", func(t *testing.T) {
+							analyzer, err := s.Analyzer()
+							if err != nil {
+								t.Fatal(err)
+							}
+							graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
+							for e := range GraphErrors(graph) {
+								err = errors.Join(err, e)
+							}
+							if err != nil {
+								t.Fatal(err)
+							}
+							if got := s.Result.Version(); got != min {
+								t.Errorf("got %d, want %d", got, min)
 							}
 						})
 
@@ -130,7 +152,23 @@ func TestLangChecks(t *testing.T) {
 							s.Check = true
 							s.Strict = true
 
-							_, err := s.ScanDir(tmpdir)
+							if _, err := s.ScanPackages(pkgs); err != nil {
+								t.Errorf("got error %s, want no error", err)
+							}
+						})
+						t.Run("StrictCheckOKWithAnalyzer", func(t *testing.T) {
+							s.reset()
+							s.Check = true
+							s.Strict = true
+
+							analyzer, err := s.Analyzer()
+							if err != nil {
+								t.Fatal(err)
+							}
+							graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
+							for e := range GraphErrors(graph) {
+								err = errors.Join(err, e)
+							}
 							if err != nil {
 								t.Errorf("got error %s, want no error", err)
 							}
@@ -144,8 +182,25 @@ func TestLangChecks(t *testing.T) {
 								Verbose: testing.Verbose(),
 								Check:   true,
 							}
+							pkgs, err := s.LoadPackages(tmpdir)
+							if err != nil {
+								t.Fatal(err)
+							}
 							t.Run("CheckOK", func(t *testing.T) {
-								_, err := s.ScanDir(tmpdir)
+								_, err := s.ScanPackages(pkgs)
+								if err != nil {
+									t.Errorf("got error %s, want no error", err)
+								}
+							})
+							t.Run("CheckOKWithAnalyzer", func(t *testing.T) {
+								analyzer, err := s.Analyzer()
+								if err != nil {
+									t.Fatal(err)
+								}
+								graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
+								for e := range GraphErrors(graph) {
+									err = errors.Join(err, e)
+								}
 								if err != nil {
 									t.Errorf("got error %s, want no error", err)
 								}
@@ -160,8 +215,35 @@ func TestLangChecks(t *testing.T) {
 								Verbose: testing.Verbose(),
 								Check:   true,
 							}
+							pkgs, err := s.LoadPackages(tmpdir)
+							if err != nil {
+								t.Fatal(err)
+							}
 							t.Run("CheckFail", func(t *testing.T) {
-								_, err := s.ScanDir(tmpdir)
+								_, err := s.ScanPackages(pkgs)
+
+								var (
+									verr VersionError
+									lerr LoadError
+								)
+								switch {
+								case errors.As(err, &lerr):
+									// Do nothing
+								case errors.As(err, &verr):
+									// Do nothing
+								default:
+									t.Errorf("got error %v, want a LoadError or VersionError", err)
+								}
+							})
+							t.Run("CheckFailWithAnalyzer", func(t *testing.T) {
+								analyzer, err := s.Analyzer()
+								if err != nil {
+									t.Fatal(err)
+								}
+								graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
+								for e := range GraphErrors(graph) {
+									err = errors.Join(err, e)
+								}
 
 								var (
 									verr VersionError
