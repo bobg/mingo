@@ -412,32 +412,58 @@ func (p *pkgScanner) typeConversion(expr *ast.CallExpr, funtv types.TypeAndValue
 }
 
 func (p *pkgScanner) builtinCall(expr *ast.CallExpr) (bool, error) {
-	id := getID(expr.Fun)
-	if id == nil {
-		return false, fmt.Errorf("builtin call expression has no identifier")
-	}
-	switch id.Name {
-	case "min", "max", "clear":
-		result := posResult{
-			version: 21,
-			pos:     p.fset.Position(expr.Pos()),
-			desc:    fmt.Sprintf("use of %s builtin", id.Name),
+	operator := ast.Unparen(expr.Fun)
+	switch operator := operator.(type) {
+	case *ast.Ident:
+		switch operator.Name {
+		case "min", "max", "clear":
+			result := posResult{
+				version: 21,
+				pos:     p.fset.Position(expr.Pos()),
+				desc:    fmt.Sprintf("use of %s builtin", operator.Name),
+			}
+			if p.result(result) {
+				return true, nil
+			}
 		}
-		return p.result(result), nil
+
+	case *ast.SelectorExpr:
+		if operator.Sel.Name == "unsafe" {
+			if id := getID(operator.X); id != nil {
+				switch id.Name {
+				case "Slice", "IntegerType", "Add":
+					result := posResult{
+						version: 17,
+						pos:     p.fset.Position(expr.Pos()),
+						desc:    fmt.Sprintf("use of unsafe.%s builtin", id.Name),
+					}
+					if p.result(result) {
+						return true, nil
+					}
+
+				case "String", "StringData", "SliceData":
+					result := posResult{
+						version: 20,
+						pos:     p.fset.Position(expr.Pos()),
+						desc:    fmt.Sprintf("use of unsafe.%s builtin", id.Name),
+					}
+					if p.result(result) {
+						return true, nil
+					}
+				}
+			}
+		}
 	}
 
 	return p.callArgs(expr)
 }
 
 func getID(expr ast.Expr) *ast.Ident {
-	switch expr := expr.(type) {
-	case *ast.Ident:
-		return expr
-	case *ast.ParenExpr:
-		return getID(expr.X)
-	default:
-		return nil
+	expr = ast.Unparen(expr)
+	if id, ok := expr.(*ast.Ident); ok {
+		return id
 	}
+	return nil
 }
 
 func (p *pkgScanner) starExpr(expr *ast.StarExpr) (bool, error) {
