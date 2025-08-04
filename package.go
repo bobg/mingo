@@ -13,6 +13,7 @@ type pkgScanner struct {
 	pkgpath string
 	fset    *token.FileSet
 	info    *types.Info
+	res Result
 }
 
 // Bool result tells whether the max known Go version has been reached.
@@ -26,6 +27,9 @@ func (p *pkgScanner) file(file *ast.File) (bool, error) {
 }
 
 func (p *pkgScanner) result(r Result) bool {
+	if r.Version() > p.res.Version() {
+		p.res = r
+	}
 	return p.s.result(r)
 }
 

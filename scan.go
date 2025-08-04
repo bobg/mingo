@@ -122,40 +122,52 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 		}
 	}
 
-	if s.Deps && len(pkgs) > 0 && pkgs[0].Module != nil {
-		if err := s.scanDeps(pkgs[0].Module.GoMod); err != nil {
-			return nil, errors.Wrap(err, "scanning dependencies")
-		}
-	}
+	if len(pkgs) > 0 && pkgs[0].Module != nil {
+		module := pkgs[0].Module
 
-	if s.Check && len(pkgs) > 0 {
-		var declared int
-		parts := strings.SplitN(pkgs[0].Module.GoVersion, ".", 3)
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("go.mod has invalid go version %s", pkgs[0].Module.GoVersion)
-		}
-		declared, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return nil, fmt.Errorf("go.mod has invalid go version %s", pkgs[0].Module.GoVersion)
-		}
-		if s.Strict {
-			if s.Result.Version() != declared {
-				return nil, VersionError{
-					Computed: s.Result,
-					Declared: declared,
-				}
+		if s.Deps {
+			if err := s.scanDeps(module.GoMod); err != nil {
+				return nil, errors.Wrap(err, "scanning dependencies")
 			}
-		} else {
-			if s.Result.Version() > declared {
-				return nil, VersionError{
-					Computed: s.Result,
-					Declared: declared,
-				}
-			}
+		}
+
+		if err := s.doCheck(module.GoVersion); err != nil {
+			return nil, errors.Wrap(err, "checking go declaration")
 		}
 	}
 
 	return s.Result, nil
+}
+
+func (s *Scanner) doCheck(goVersion string) error {
+	if !s.Check {
+		return nil
+	}
+	var declared int
+	parts := strings.SplitN(goVersion, ".", 3)
+	if len(parts) < 2 {
+		return fmt.Errorf("go.mod has invalid go version %s", goVersion)
+	}
+	declared, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return fmt.Errorf("go.mod has invalid go version %s", goVersion)
+	}
+	if s.Strict {
+		if s.Result.Version() != declared {
+			return VersionError{
+				Computed: s.Result,
+				Declared: declared,
+			}
+		}
+	} else {
+		if s.Result.Version() > declared {
+			return VersionError{
+				Computed: s.Result,
+				Declared: declared,
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Scanner) reset() {
@@ -163,32 +175,34 @@ func (s *Scanner) reset() {
 }
 
 func (s *Scanner) scanPackage(pkg *packages.Package) error {
-	return s.scanPackageHelper(pkg.PkgPath, pkg.Fset, pkg.TypesInfo, pkg.Syntax)
+	_, err := s.scanPackageHelper(pkg.PkgPath, pkg.Fset, pkg.TypesInfo, pkg.Syntax)
+	return err
 }
 
-func (s *Scanner) scanPackageHelper(pkgpath string, fset *token.FileSet, info *types.Info, files []*ast.File) error {
+func (s *Scanner) scanPackageHelper(pkgpath string, fset *token.FileSet, info *types.Info, files []*ast.File) (Result, error) {
 	p := pkgScanner{
 		s:       s,
 		pkgpath: pkgpath,
 		fset:    fset,
 		info:    info,
+		res:     intResult(0),
 	}
 
 	for _, file := range files {
 		filename := p.fset.Position(file.Pos()).Filename
 		isInCache, err := isCacheFile(filename)
 		if err != nil {
-			return errors.Wrapf(err, "checking whether %s is in GOCACHE", filename)
+			return nil, errors.Wrapf(err, "checking whether %s is in GOCACHE", filename)
 		}
 		if isInCache {
 			continue
 		}
 		if isMax, err := p.file(file); err != nil || isMax {
-			return errors.Wrapf(err, "scanning file %s", filename)
+			return nil, errors.Wrapf(err, "scanning file %s", filename)
 		}
 	}
 
-	return nil
+	return p.res, nil
 }
 
 func (s *Scanner) lookup(pkgpath, name, typ string) int {

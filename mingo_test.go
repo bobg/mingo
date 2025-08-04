@@ -126,18 +126,20 @@ func TestLangChecks(t *testing.T) {
 							}
 						})
 						t.Run("ScanPackagesWithAnalyzer", func(t *testing.T) {
+							s.reset()
 							analyzer, err := s.Analyzer()
 							if err != nil {
 								t.Fatal(err)
 							}
 							graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
-							for e := range GraphErrors(graph) {
-								err = errors.Join(err, e)
-							}
 							if err != nil {
 								t.Fatal(err)
 							}
-							if got := s.Result.Version(); got != min {
+							result, err := s.AfterAnalyze(graph, analyzer)
+							if err != nil {
+								t.Fatal(err)
+							}
+							if got := result.Version(); got != min {
 								t.Errorf("got %d, want %d", got, min)
 							}
 						})
@@ -166,10 +168,10 @@ func TestLangChecks(t *testing.T) {
 								t.Fatal(err)
 							}
 							graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
-							for e := range GraphErrors(graph) {
-								err = errors.Join(err, e)
-							}
 							if err != nil {
+								t.Fatal(err)
+							}
+							if _, err := s.AfterAnalyze(graph, analyzer); err != nil {
 								t.Errorf("got error %s, want no error", err)
 							}
 						})
@@ -193,15 +195,16 @@ func TestLangChecks(t *testing.T) {
 								}
 							})
 							t.Run("CheckOKWithAnalyzer", func(t *testing.T) {
+								s.reset()
 								analyzer, err := s.Analyzer()
 								if err != nil {
 									t.Fatal(err)
 								}
 								graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
-								for e := range GraphErrors(graph) {
-									err = errors.Join(err, e)
-								}
 								if err != nil {
+									t.Fatal(err)
+								}
+								if _, err := s.AfterAnalyze(graph, analyzer); err != nil {
 									t.Errorf("got error %s, want no error", err)
 								}
 							})
@@ -241,9 +244,10 @@ func TestLangChecks(t *testing.T) {
 									t.Fatal(err)
 								}
 								graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, pkgs, nil)
-								for e := range GraphErrors(graph) {
-									err = errors.Join(err, e)
+								if err != nil {
+									t.Fatal(err)
 								}
+								_, err = s.AfterAnalyze(graph, analyzer)
 
 								var (
 									verr VersionError
