@@ -240,7 +240,7 @@ func (s *Scanner) ensureHistory() error {
 		return errors.Wrapf(err, "parsing minor version from runtime version %s", gover)
 	}
 	if minor != s.h.max {
-		return fmt.Errorf("runtime Go version 1.%d does not match history max 1.%d (reading from %s)", minor, s.h.max, s.HistDir)
+		return fmt.Errorf("runtime Go version 1.%d does not match history max 1.%d (reading from HistDir %q)", minor, s.h.max, s.HistDir)
 	}
 
 	return nil
