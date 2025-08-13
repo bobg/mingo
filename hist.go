@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/bobg/errors"
-	"github.com/bobg/go-generics/v3/slices"
+	"github.com/bobg/go-generics/v4/slices"
 )
 
 // Type history is the history of the Go stdlib,

@@ -6,10 +6,19 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bobg/errors"
+
 	"github.com/bobg/mingo"
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	var (
 		api, deps                     string
 		check, strict, tests, verbose bool
@@ -35,8 +44,7 @@ func main() {
 	case "all", "direct", "none":
 		// ok, do nothing
 	default:
-		fmt.Fprintf(os.Stderr, "Invalid value for -deps: %s (should be all, direct, or none)\n", deps)
-		os.Exit(1)
+		return fmt.Errorf("invalid value for -deps: %s (should be all, direct, or none)", deps)
 	}
 
 	s := mingo.Scanner{
@@ -51,11 +59,12 @@ func main() {
 
 	result, err := s.ScanDir(dir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error scanning directory: %s\n", err)
-		os.Exit(1)
+		return errors.Wrap(err, "scanning directory")
 	}
 
 	if !check {
 		fmt.Println(result.Version())
 	}
+
+	return nil
 }
