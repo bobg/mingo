@@ -209,7 +209,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) (bool,
 	}
 
 	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
-		typ := ""
+		var typ string
 		if sig, ok := obj.Type().(*types.Signature); ok {
 			if !isCallFun {
 				p.result(posResult{
@@ -218,10 +218,11 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) (bool,
 					desc:    "method used as value",
 				})
 			}
-			if sig.Recv() != nil {
-				typ = sig.Recv().Type().String()
-				parts := strings.Split(typ, ".")
-				typ = parts[len(parts)-1]
+			if recv := sig.Recv(); recv != nil {
+				recvtype := recv.Type().String()
+				if lastDot := strings.LastIndex(recvtype, "."); lastDot >= 0 {
+					typ = recvtype[lastDot+1:]
+				}
 			}
 		}
 
@@ -230,6 +231,7 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) (bool,
 			return false, nil
 		}
 		pkgpath := pkg.Path()
+
 		if v := p.s.lookup(pkgpath, expr.Sel.Name, typ); v > 0 {
 			selResult := posResult{
 				version: v,
