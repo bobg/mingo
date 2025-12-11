@@ -13,3 +13,14 @@ func TestBug14(t *testing.T) {
 		t.Errorf("got %d, want 16", v)
 	}
 }
+
+func TestBug26(t *testing.T) {
+	var s Scanner
+	res, err := s.ScanDir("_testdata/bug26")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := res.Version(); v != 18 {
+		t.Errorf("got %d, want 18", v)
+	}
+}
