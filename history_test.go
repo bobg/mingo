@@ -36,6 +36,11 @@ func TestHistory(t *testing.T) {
 		pkgpath: "io",
 		ident:   "NopCloser",
 		want:    16,
+	}, {
+		// https://github.com/bobg/mingo/issues/26
+		pkgpath: "text/template/parse",
+		ident:   "BreakNode",
+		want:    18,
 	}}
 
 	for _, tc := range cases {
