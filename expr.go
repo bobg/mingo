@@ -208,22 +208,19 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) (bool,
 		return isMax, err
 	}
 
-	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
-		var typ string
-		if sig, ok := obj.Type().(*types.Signature); ok {
-			if !isCallFun {
-				p.result(posResult{
-					version: 1,
-					pos:     p.fset.Position(expr.Pos()),
-					desc:    "method used as value",
-				})
-			}
-			if recv := sig.Recv(); recv != nil {
-				recvtype := recv.Type().String()
-				if lastDot := strings.LastIndex(recvtype, "."); lastDot >= 0 {
-					typ = recvtype[lastDot+1:]
-				}
-			}
+	if sel, ok := p.info.Selections[expr]; ok {
+		obj := sel.Obj()
+		if obj == nil {
+			return false, nil
+		}
+
+		typ := sel.Recv()
+		if ptr, ok := typ.(*types.Pointer); ok {
+			typ = ptr.Elem()
+		}
+		typestr := typ.String()
+		if dot := strings.LastIndex(typestr, "."); dot >= 0 {
+			typestr = typestr[dot+1:]
 		}
 
 		pkg := obj.Pkg()
@@ -232,7 +229,53 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) (bool,
 		}
 		pkgpath := pkg.Path()
 
-		if v := p.s.lookup(pkgpath, expr.Sel.Name, typ); v > 0 {
+		switch sel.Kind() {
+		case types.FieldVal:
+			v := p.s.lookup(pkgpath, expr.Sel.Name, typestr)
+			if v == 0 {
+				return false, nil
+			}
+
+			selResult := posResult{
+				version: v,
+				pos:     p.fset.Position(expr.Pos()),
+				desc:    fmt.Sprintf(`"%s".%s.%s`, pkgpath, typestr, expr.Sel.Name),
+			}
+			return p.result(selResult), nil
+
+		case types.MethodVal:
+			if !isCallFun {
+				p.result(posResult{
+					version: 1,
+					pos:     p.fset.Position(expr.Pos()),
+					desc:    "method used as value",
+				})
+			}
+			fallthrough
+
+		case types.MethodExpr:
+			if v := p.s.lookup(pkgpath, expr.Sel.Name, typestr); v > 0 {
+				selResult := posResult{
+					version: v,
+					pos:     p.fset.Position(expr.Pos()),
+					desc:    fmt.Sprintf(`"%s".%s`, pkgpath, expr.Sel.Name),
+				}
+				if p.result(selResult) {
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	}
+
+	if obj, ok := p.info.Uses[expr.Sel]; ok && obj != nil {
+		pkg := obj.Pkg()
+		if pkg == nil {
+			return false, nil
+		}
+		pkgpath := pkg.Path()
+
+		if v := p.s.lookup(pkgpath, expr.Sel.Name, ""); v > 0 {
 			selResult := posResult{
 				version: v,
 				pos:     p.fset.Position(expr.Pos()),
@@ -242,40 +285,9 @@ func (p *pkgScanner) selectorExpr(expr *ast.SelectorExpr, isCallFun bool) (bool,
 				return true, nil
 			}
 		}
-		return false, nil
 	}
 
-	sel, ok := p.info.Selections[expr]
-	if !ok {
-		return false, nil
-	}
-	obj := sel.Obj()
-	if obj == nil {
-		return false, nil
-	}
-	pkg := obj.Pkg()
-	if pkg == nil {
-		return false, nil
-	}
-	pkgpath := pkg.Path()
-
-	typ := sel.Recv()
-	if ptr, ok := typ.(*types.Pointer); ok {
-		typ = ptr.Elem()
-	}
-	typestr := typ.String()
-
-	v := p.s.lookup(pkgpath, expr.Sel.Name, typestr)
-	if v == 0 {
-		return false, nil
-	}
-
-	selResult := posResult{
-		version: v,
-		pos:     p.fset.Position(expr.Pos()),
-		desc:    fmt.Sprintf(`"%s".%s.%s`, pkgpath, typestr, expr.Sel.Name),
-	}
-	return p.result(selResult), nil
+	return false, nil
 }
 
 func (p *pkgScanner) indexExpr(expr *ast.IndexExpr) (bool, error) {
