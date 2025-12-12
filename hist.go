@@ -48,6 +48,9 @@ func (p pkgHistory) lookup(id, typ string) int {
 	if typ == "" {
 		return p.ids[id]
 	}
+	if idx := strings.LastIndex(typ, "."); idx >= 0 { // xxx can we make this unnecessary?
+		typ = typ[idx+1:]
+	}
 	if t, ok := p.types[typ]; ok {
 		return t[id]
 	}
