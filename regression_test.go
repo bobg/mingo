@@ -14,6 +14,18 @@ func TestBug14(t *testing.T) {
 	}
 }
 
+// https://github.com/bobg/mingo/issues/26
+func TestBug26(t *testing.T) {
+	var s Scanner
+	res, err := s.ScanDir("_testdata/bug26")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := res.Version(); v != 18 {
+		t.Errorf("got %d, want 18", v)
+	}
+}
+
 // https://github.com/bobg/mingo/issues/27
 func TestBug27(t *testing.T) {
 	var s Scanner

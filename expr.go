@@ -180,6 +180,9 @@ func (p *pkgScanner) funcBody(body *ast.BlockStmt) (bool, error) {
 }
 
 func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) (bool, error) {
+	if isMax, err := p.expr(lit.Type); err != nil || isMax {
+		return isMax, err
+	}
 	for _, elt := range lit.Elts {
 		if isMax, err := p.expr(elt); err != nil || isMax {
 			return isMax, err
