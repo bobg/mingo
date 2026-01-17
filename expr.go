@@ -450,6 +450,21 @@ func (p *pkgScanner) builtinCall(expr *ast.CallExpr) (bool, error) {
 			if p.result(result) {
 				return true, nil
 			}
+
+		case "new":
+			if len(expr.Args) == 1 {
+				arg := expr.Args[0]
+				if typ, ok := p.info.Types[arg]; ok && !typ.IsType() {
+					result := posResult{
+						version: 26,
+						pos:     p.fset.Position(expr.Pos()),
+						desc:    "use of new builtin with non-type argument",
+					}
+					if p.result(result) {
+						return true, nil
+					}
+				}
+			}
 		}
 
 	case *ast.SelectorExpr:
