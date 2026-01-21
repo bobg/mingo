@@ -91,8 +91,32 @@ func (p *pkgScanner) valueSpec(spec *ast.ValueSpec) (bool, error) {
 }
 
 func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) (bool, error) {
+	var generic bool
+
+	if spec.TypeParams != nil && len(spec.TypeParams.List) > 0 {
+		generic = true
+		p.result(posResult{
+			version: 18,
+			pos:     p.fset.Position(spec.Pos()),
+			desc:    "generic type decl",
+		})
+
+		v := recursiveTypeParamVisitor{name: spec.Name}
+		ast.Walk(&v, spec.TypeParams)
+		if v.found {
+			isMax := p.result(posResult{
+				version: 26,
+				pos:     p.fset.Position(spec.Pos()),
+				desc:    "recursive type parameter",
+			})
+			if isMax {
+				return true, nil
+			}
+		}
+	}
+
 	if spec.Assign.IsValid() {
-		if spec.TypeParams != nil && len(spec.TypeParams.List) > 0 {
+		if generic {
 			p.result(posResult{
 				version: 24,
 				pos:     p.fset.Position(spec.Pos()),
@@ -116,4 +140,20 @@ func (p *pkgScanner) typeSpec(spec *ast.TypeSpec) (bool, error) {
 		})
 	}
 	return p.expr(spec.Type)
+}
+
+type recursiveTypeParamVisitor struct {
+	name  *ast.Ident
+	found bool
+}
+
+func (v *recursiveTypeParamVisitor) Visit(node ast.Node) ast.Visitor {
+	if v.found {
+		return nil
+	}
+	if ident, ok := node.(*ast.Ident); ok && ident.Name == v.name.Name {
+		v.found = true
+		return nil
+	}
+	return v
 }

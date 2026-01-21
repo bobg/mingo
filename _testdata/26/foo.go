@@ -1,3 +1,3 @@
-func twentysix() *int {
+func twentysixA() *int {
 	return new(17)
 }
