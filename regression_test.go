@@ -37,3 +37,15 @@ func TestBug27(t *testing.T) {
 		t.Errorf("got %d, want 23", v)
 	}
 }
+
+// https://github.com/bobg/mingo/issues/30
+func TestBug30(t *testing.T) {
+	s := Scanner{Tests: true}
+	res, err := s.ScanDir("_testdata/bug30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := res.Version(); v != 24 {
+		t.Errorf("got %d, want 24", v)
+	}
+}
