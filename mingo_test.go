@@ -163,16 +163,11 @@ func TestLangChecks(t *testing.T) {
 							t.Run("CheckFail", func(t *testing.T) {
 								_, err := s.ScanDir(tmpdir)
 
-								var (
-									verr VersionError
-									lerr LoadError
-								)
-								switch {
-								case errors.As(err, &lerr):
+								if _, ok := errors.AsType[VersionError](err); ok {
 									// Do nothing
-								case errors.As(err, &verr):
+								} else if _, ok := errors.AsType[LoadError](err); ok {
 									// Do nothing
-								default:
+								} else {
 									t.Errorf("got error %v, want a LoadError or VersionError", err)
 								}
 							})

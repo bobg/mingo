@@ -130,6 +130,8 @@ func goroot() string {
 	if g := os.Getenv("GOROOT"); g != "" {
 		return g
 	}
+
+	//lint:ignore SA1019 We actually do want the behavior that is the reason runtime.GOROOT is deprecated.
 	return runtime.GOROOT()
 }
 
