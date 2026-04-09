@@ -44,7 +44,7 @@ func TestLangChecks(t *testing.T) {
 		minstr := strconv.Itoa(min)
 
 		var (
-			thisVersionCode    string
+			thisVersionCode    strings.Builder
 			thisVersionImports []string
 		)
 
@@ -177,13 +177,13 @@ func TestLangChecks(t *testing.T) {
 					// TODO: check the same things using Scanner.Analyzer
 					// (when the API in https://github.com/golang/go/issues/61324 lands)
 
-					thisVersionCode += code
+					thisVersionCode.WriteString(code)
 					thisVersionImports = append(thisVersionImports, imports...)
 				})
 			}
 		})
 
-		earlierCode += thisVersionCode
+		earlierCode += thisVersionCode.String()
 
 		earlierImports = append(earlierImports, thisVersionImports...)
 		sort.Strings(earlierImports)

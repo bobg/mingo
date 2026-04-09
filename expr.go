@@ -644,7 +644,7 @@ func differingTags(a, b *types.Struct) bool {
 	if n != b.NumFields() {
 		return false // sic - we don't care if the fields differ, only whether the tags differ
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if a.Tag(i) != b.Tag(i) {
 			return true
 		}
