@@ -597,9 +597,9 @@ func (p *pkgScanner) checkInterfaceOverlaps(intf *types.Interface, pos token.Pos
 			for j := i + 1; j < intf.NumEmbeddeds(); j++ {
 				embed = intf.EmbeddedType(j)
 				if embed2, ok := embed.Underlying().(*types.Interface); ok {
-					for ii := 0; ii < embed1.NumMethods(); ii++ {
-						for jj := 0; jj < embed2.NumMethods(); jj++ {
-							if embed1.Method(ii).Name() == embed2.Method(jj).Name() { // we don't care whether the signatures match
+					for method := range embed1.Methods() {
+						for method := range embed2.Methods() {
+							if method.Name() == method.Name() { // we don't care whether the signatures match
 								return p.result(posResult{
 									version: 14,
 									pos:     p.fset.Position(pos),
@@ -611,9 +611,9 @@ func (p *pkgScanner) checkInterfaceOverlaps(intf *types.Interface, pos token.Pos
 				}
 			}
 
-			for j := 0; j < intf.NumExplicitMethods(); j++ {
-				for ii := 0; ii < embed1.NumMethods(); ii++ {
-					if intf.ExplicitMethod(j).Name() == embed1.Method(ii).Name() { // we don't care whether the signatures match
+			for method := range intf.ExplicitMethods() {
+				for method := range embed1.Methods() {
+					if method.Name() == method.Name() { // we don't care whether the signatures match
 						return p.result(posResult{
 							version: 14,
 							pos:     p.fset.Position(pos),
@@ -644,7 +644,7 @@ func differingTags(a, b *types.Struct) bool {
 	if n != b.NumFields() {
 		return false // sic - we don't care if the fields differ, only whether the tags differ
 	}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if a.Tag(i) != b.Tag(i) {
 			return true
 		}
