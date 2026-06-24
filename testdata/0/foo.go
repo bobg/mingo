@@ -1,5 +1,5 @@
 // Nothing in this file
-// (variants of code in other subdirs of _testdata)
+// (variants of code in other subdirs of testdata)
 // should cause an increase in the required Go version.
 
 func zero1() int {

@@ -196,6 +196,31 @@ func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) (bool, error) {
 					desc:    "composite literal with composite-type key and no explicit type",
 				})
 			}
+
+			if ident, ok := kv.Key.(*ast.Ident); ok {
+				tv, ok := p.info.Types[lit]
+				if ok && tv.Type != nil {
+					if structType, ok := tv.Type.Underlying().(*types.Struct); ok {
+						isDirect := false
+						for i := 0; i < structType.NumFields(); i++ {
+							if structType.Field(i).Name() == ident.Name {
+								isDirect = true
+								break
+							}
+						}
+						if !isDirect && isEmbeddedField(structType, ident.Name) {
+							res := posResult{
+								version: 27,
+								pos:     p.fset.Position(ident.Pos()),
+								desc:    fmt.Sprintf("embedded struct field %s in composite literal", ident.Name),
+							}
+							if p.result(res) {
+								return true, nil
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -647,6 +672,29 @@ func differingTags(a, b *types.Struct) bool {
 	for i := range n {
 		if a.Tag(i) != b.Tag(i) {
 			return true
+		}
+	}
+	return false
+}
+
+func isEmbeddedField(str *types.Struct, name string) bool {
+	for i := 0; i < str.NumFields(); i++ {
+		f := str.Field(i)
+		if f.Anonymous() {
+			typ := f.Type().Underlying()
+			if ptr, ok := typ.(*types.Pointer); ok {
+				typ = ptr.Elem().Underlying()
+			}
+			if embeddedStruct, ok := typ.(*types.Struct); ok {
+				for j := 0; j < embeddedStruct.NumFields(); j++ {
+					if embeddedStruct.Field(j).Name() == name {
+						return true
+					}
+				}
+				if isEmbeddedField(embeddedStruct, name) {
+					return true
+				}
+			}
 		}
 	}
 	return false

@@ -9,14 +9,14 @@ func TestScanDeps(t *testing.T) {
 	s := Scanner{
 		Deps: true,
 		depScanner: mockDepScanner{
-			"foo.bar/baz@v1.2.3": "_testdata/foobar.go.mod",
+			"foo.bar/baz@v1.2.3": "testdata/foobar.go.mod",
 		},
 		Result: intResult(0),
 	}
 	if err := s.ensureHistory(); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.scanDeps("_testdata/go.mod"); err != nil {
+	if err := s.scanDeps("testdata/go.mod"); err != nil {
 		t.Fatal(err)
 	}
 	if s.Result == nil {

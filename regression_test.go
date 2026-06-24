@@ -5,7 +5,7 @@ import "testing"
 // https://github.com/bobg/mingo/issues/14
 func TestBug14(t *testing.T) {
 	var s Scanner
-	res, err := s.ScanDir("_testdata/bug14")
+	res, err := s.ScanDir("testdata/bug14")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,7 +17,7 @@ func TestBug14(t *testing.T) {
 // https://github.com/bobg/mingo/issues/26
 func TestBug26(t *testing.T) {
 	var s Scanner
-	res, err := s.ScanDir("_testdata/bug26")
+	res, err := s.ScanDir("testdata/bug26")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestBug26(t *testing.T) {
 // https://github.com/bobg/mingo/issues/27
 func TestBug27(t *testing.T) {
 	var s Scanner
-	res, err := s.ScanDir("_testdata/bug27")
+	res, err := s.ScanDir("testdata/bug27")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestBug27(t *testing.T) {
 // https://github.com/bobg/mingo/issues/30
 func TestBug30(t *testing.T) {
 	s := Scanner{Tests: true}
-	res, err := s.ScanDir("_testdata/bug30")
+	res, err := s.ScanDir("testdata/bug30")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,7 +15,7 @@ import (
 )
 
 func TestLangChecks(t *testing.T) {
-	entries, err := os.ReadDir("_testdata")
+	entries, err := os.ReadDir("testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestLangChecks(t *testing.T) {
 		)
 
 		t.Run(minstr, func(t *testing.T) {
-			entries, err := os.ReadDir("_testdata/" + minstr)
+			entries, err := os.ReadDir("testdata/" + minstr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -61,7 +61,7 @@ func TestLangChecks(t *testing.T) {
 					continue
 				}
 				t.Run(strings.TrimSuffix(entry.Name(), ".go"), func(t *testing.T) {
-					filename := "_testdata/" + minstr + "/" + entry.Name()
+					filename := "testdata/" + minstr + "/" + entry.Name()
 
 					code, imports, err := readGoFile(filename)
 					if err != nil {
