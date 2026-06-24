@@ -1,3 +1,3 @@
-func eighteenC1[T any](x T) T { return x }
+func v18_C1[T any](x T) T { return x }
 
-var eighteenC2 = eighteenC1[int]
+var v18_C2 = v18_C1[int]

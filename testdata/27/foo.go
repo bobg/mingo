@@ -1,13 +1,13 @@
-type twentysevenA struct {
-	twentysevenB
+type v27_A struct {
+	v27_B
 	b int
 }
 
-type twentysevenB struct {
+type v27_B struct {
 	c string
 	d bool
 }
 
-var twentysevenC = twentysevenA{
+var v27_C = v27_A{
 	c: "hello",
 }

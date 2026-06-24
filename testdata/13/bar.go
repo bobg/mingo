@@ -1,1 +1,1 @@
-var thirteenB int = 52 >> int(2)
+var v13_B int = 52 >> int(2)

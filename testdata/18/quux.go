@@ -1,9 +1,9 @@
-type eighteenD interface {
+type v18_D interface {
 	int | string
 }
 
-func eighteenE[T, U any](t T, u U) (T, U) {
+func v18_E[T, U any](t T, u U) (T, U) {
 	return t, u
 }
 
-var eighteenEIntString = eighteenE[int, string]
+var v18_EIntString = v18_E[int, string]

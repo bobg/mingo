@@ -1,14 +1,14 @@
-type fourteenA interface {
+type v14_A interface {
 	A()
 	B()
 }
 
-type fourteenB interface {
+type v14_B interface {
 	B()
 	C()
 }
 
-type fourteenC interface {
-	fourteenA
-	fourteenB
+type v14_C interface {
+	v14_A
+	v14_B
 }

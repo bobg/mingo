@@ -1,6 +1,6 @@
-type nineA = int
+type v9_A = int
 
-func nineB(x interface{}) interface{} {
+func v9_B(x interface{}) interface{} {
 	type any = interface{}
 
 	var y any = x // should not require Go 1.18 (where any is predefined)

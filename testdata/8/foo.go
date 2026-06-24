@@ -1,11 +1,11 @@
-type eightA struct {
+type v8_A struct {
 	a, b, c, d, e, f, g, h int
 }
 
-type eightB struct {
+type v8_B struct {
 	a, b, c, d int
 	e          int `json:"ee"`
 	f, g, h    int
 }
 
-var eightC = eightB(eightA{})
+var v8_C = v8_B(v8_A{})

@@ -1,7 +1,7 @@
-type five1 struct {
+type v5_1 struct {
 	a, b int
 }
 
-var five2 = map[five1]int{
+var v5_2 = map[v5_1]int{
 	{a: 1, b: 2}: 3,
 }

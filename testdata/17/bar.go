@@ -1,5 +1,5 @@
 import "time"
 
-func seventeenB() {
+func v17_B() {
 	println(time.Now().GoString())
 }

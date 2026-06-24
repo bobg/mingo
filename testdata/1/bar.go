@@ -1,10 +1,10 @@
-type one2 struct{}
+type v1_2 struct{}
 
-func (one2) x() int {
+func (v1_2) x() int {
 	return 42
 }
 
-func one2func() func() int {
-	var y one2
+func v1_2func() func() int {
+	var y v1_2
 	return y.x
 }
