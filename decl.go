@@ -29,6 +29,17 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) (bool, error) {
 			pos:     p.fset.Position(decl.Pos()),
 			desc:    "generic func decl",
 		})
+
+		if false && decl.Recv != nil && len(decl.Recv.List) > 0 {
+			res := posResult{
+				version: 27,
+				pos:     p.fset.Position(decl.Pos()),
+				desc:    "generic method",
+			}
+			if p.result(res) {
+				return true, nil
+			}
+		}
 	}
 
 	if isMax, err := p.fieldList(decl.Type.Params); err != nil || isMax {
