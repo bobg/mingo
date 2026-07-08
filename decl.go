@@ -30,7 +30,7 @@ func (p *pkgScanner) funcDecl(decl *ast.FuncDecl) (bool, error) {
 			desc:    "generic func decl",
 		})
 
-		if false && decl.Recv != nil && len(decl.Recv.List) > 0 {
+		if decl.Recv != nil && len(decl.Recv.List) > 0 {
 			res := posResult{
 				version: 27,
 				pos:     p.fset.Position(decl.Pos()),
