@@ -8,7 +8,13 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
 
     permissions:
       issues: write
@@ -29,13 +35,14 @@ jobs:
         run: go test -coverprofile=cover.out ./...
 
       - name: Send coverage
+        if: runner.os == 'Linux'
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: cover.out
         continue-on-error: true
 
       - name: Modver
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ runner.os == 'Linux' && github.event_name == 'pull_request' }}
         uses: bobg/modver@v2.14.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
