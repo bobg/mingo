@@ -266,9 +266,9 @@ func isCacheFile(filename string) (bool, error) {
 	return isWithinDir(cacheDir, filename), nil
 }
 
-// isWithinDir reports whether filename lies inside dir, using a purely lexical check
-// (no filesystem I/O, no symlink resolution).
-// Paths that cannot be made relative - e.g. on different Windows volumes - are treated as outside dir.
+// isWithinDir reports whether filename is dir or lies inside it.
+// It performs a purely lexical check without filesystem I/O or symlink resolution.
+// Paths that cannot be made relative, such as paths on different Windows volumes, are treated as outside dir.
 func isWithinDir(dir, filename string) bool {
 	rel, err := filepath.Rel(dir, filename)
 	if err != nil {
