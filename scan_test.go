@@ -88,7 +88,11 @@ func TestIsWithinDir(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := isWithinDir(tc.dir, tc.filename); got != tc.want {
+			got, err := isWithinDir(tc.dir, tc.filename)
+			if err != nil {
+				t.Fatalf("isWithinDir(%q, %q): unexpected error: %v", tc.dir, tc.filename, err)
+			}
+			if got != tc.want {
 				t.Errorf("isWithinDir(%q, %q) = %v, want %v", tc.dir, tc.filename, got, tc.want)
 			}
 		})
