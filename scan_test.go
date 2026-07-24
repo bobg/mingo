@@ -1,6 +1,7 @@
 package mingo
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/bobg/errors"
@@ -64,4 +65,36 @@ func TestScanErrors(t *testing.T) {
 			t.Fatalf("got nil, want error")
 		}
 	})
+}
+
+func TestIsWithinDir(t *testing.T) {
+	base := t.TempDir()
+	parent := filepath.Dir(base)
+
+	cases := []struct {
+		name     string
+		dir      string
+		filename string
+		want     bool
+	}{
+		{"self", base, base, true},
+		{"child", base, filepath.Join(base, "child.go"), true},
+		{"nested child", base, filepath.Join(base, "subdir", "child.go"), true},
+		{"parent", base, parent, false},
+		{"outside via parent", base, filepath.Join(parent, "outside.go"), false},
+		{"sibling", filepath.Join(base, "cache"), filepath.Join(base, "sibling", "x.go"), false},
+		{"common prefix", filepath.Join(base, "cache"), filepath.Join(base, "cache-other", "x.go"), false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := isWithinDir(tc.dir, tc.filename)
+			if err != nil {
+				t.Fatalf("isWithinDir(%q, %q): unexpected error: %v", tc.dir, tc.filename, err)
+			}
+			if got != tc.want {
+				t.Errorf("isWithinDir(%q, %q) = %v, want %v", tc.dir, tc.filename, got, tc.want)
+			}
+		})
+	}
 }
