@@ -20,13 +20,13 @@ func TestScanDepsErrs(t *testing.T) {
 	})
 
 	t.Run("BadGoMod", func(t *testing.T) {
-		if err := s.scanDeps("_testdata/go.mod.bad"); err == nil {
+		if err := s.scanDeps("testdata/go.mod.bad"); err == nil {
 			t.Error("expected error")
 		}
 	})
 
 	t.Run("BadDepScan", func(t *testing.T) {
-		err := s.scanDeps("_testdata/go.mod")
+		err := s.scanDeps("testdata/go.mod")
 		if !errors.Is(err, depScannerErr) {
 			t.Errorf("got error %v, want %v", err, depScannerErr)
 		}

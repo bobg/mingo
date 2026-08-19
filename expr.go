@@ -188,14 +188,52 @@ func (p *pkgScanner) compositeLit(lit *ast.CompositeLit) (bool, error) {
 			return isMax, err
 		}
 
-		if kv, ok := elt.(*ast.KeyValueExpr); ok {
-			if ck, ok := kv.Key.(*ast.CompositeLit); ok && ck.Type == nil {
-				p.result(posResult{
-					version: 5,
-					pos:     p.fset.Position(ck.Pos()),
-					desc:    "composite literal with composite-type key and no explicit type",
-				})
+		kv, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		if ck, ok := kv.Key.(*ast.CompositeLit); ok && ck.Type == nil {
+			p.result(posResult{
+				version: 5,
+				pos:     p.fset.Position(ck.Pos()),
+				desc:    "composite literal with composite-type key and no explicit type",
+			})
+		}
+
+		ident, ok := kv.Key.(*ast.Ident)
+		if !ok {
+			continue
+		}
+
+		tv, ok := p.info.Types[lit]
+		if !ok || tv.Type == nil {
+			continue
+		}
+
+		structType, ok := tv.Type.Underlying().(*types.Struct)
+		if !ok {
+			continue
+		}
+
+		var isDirect bool
+		for f := range structType.Fields() {
+			if f.Name() == ident.Name {
+				isDirect = true
+				break
 			}
+		}
+
+		if isDirect || !isEmbeddedField(structType, ident.Name) {
+			continue
+		}
+
+		res := posResult{
+			version: 27,
+			pos:     p.fset.Position(ident.Pos()),
+			desc:    fmt.Sprintf("embedded struct field %s in composite literal", ident.Name),
+		}
+		if p.result(res) {
+			return true, nil
 		}
 	}
 
@@ -646,6 +684,31 @@ func differingTags(a, b *types.Struct) bool {
 	}
 	for i := range n {
 		if a.Tag(i) != b.Tag(i) {
+			return true
+		}
+	}
+	return false
+}
+
+func isEmbeddedField(str *types.Struct, name string) bool {
+	for f := range str.Fields() {
+		if !f.Anonymous() {
+			continue
+		}
+		typ := f.Type().Underlying()
+		if ptr, ok := typ.(*types.Pointer); ok {
+			typ = ptr.Elem().Underlying()
+		}
+		embeddedStruct, ok := typ.(*types.Struct)
+		if !ok {
+			continue
+		}
+		for f2 := range embeddedStruct.Fields() {
+			if f2.Name() == name {
+				return true
+			}
+		}
+		if isEmbeddedField(embeddedStruct, name) {
 			return true
 		}
 	}
