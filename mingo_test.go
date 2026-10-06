@@ -86,21 +86,31 @@ func TestLangChecks(t *testing.T) {
 
 					t.Log(tmpfile.Name())
 
-					fmt.Fprint(tmpfile, "package foo\n\n")
+					if _, err := fmt.Fprint(tmpfile, "package foo\n\n"); err != nil {
+						t.Fatal(err)
+					}
 
 					combinedImports := append(earlierImports, imports...)
 					sort.Strings(combinedImports)
 					combinedImports = slices.Compact(combinedImports)
 
 					if len(combinedImports) > 0 {
-						fmt.Fprint(tmpfile, "import (\n")
-						for _, imp := range combinedImports {
-							fmt.Fprintf(tmpfile, "\t%s\n", imp)
+						if _, err := fmt.Fprint(tmpfile, "import (\n"); err != nil {
+							t.Fatal(err)
 						}
-						fmt.Fprint(tmpfile, ")\n\n")
+						for _, imp := range combinedImports {
+							if _, err := fmt.Fprintf(tmpfile, "\t%s\n", imp); err != nil {
+								t.Fatal(err)
+							}
+						}
+						if _, err := fmt.Fprint(tmpfile, ")\n\n"); err != nil {
+							t.Fatal(err)
+						}
 					}
 
-					fmt.Fprint(tmpfile, earlierCode)
+					if _, err := fmt.Fprint(tmpfile, earlierCode); err != nil {
+						t.Fatal(err)
+					}
 					if _, err := fmt.Fprint(tmpfile, code); err != nil {
 						t.Fatal(err)
 					}
@@ -246,7 +256,7 @@ func readGoFile(filename string) (string, []string, error) {
 		if strings.HasPrefix(line, "package ") {
 			continue
 		}
-		fmt.Fprintln(&code, line)
+		fmt.Fprintln(&code, line) // nolint:errcheck
 	}
 	return code.String(), imports, errors.Wrapf(sc.Err(), "scanning %s", filename)
 }
