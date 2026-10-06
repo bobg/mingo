@@ -2,6 +2,18 @@ package mingo
 
 import "testing"
 
+// https://github.com/bobg/mingo/issues/13
+func TestIssue13(t *testing.T) {
+	var s Scanner
+	res, err := s.ScanDir("testdata/issue13")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := res.Version(); v != 21 {
+		t.Errorf("got %d, want 21", v)
+	}
+}
+
 // https://github.com/bobg/mingo/issues/14
 func TestBug14(t *testing.T) {
 	var s Scanner
@@ -50,14 +62,14 @@ func TestBug30(t *testing.T) {
 	}
 }
 
-// https://github.com/bobg/mingo/issues/13
-func TestIssue13(t *testing.T) {
+// https://github.com/bobg/mingo/issues/37
+func TestBug37(t *testing.T) {
 	var s Scanner
-	res, err := s.ScanDir("testdata/issue13")
+	res, err := s.ScanDir("testdata/bug37")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := res.Version(); v != 21 {
-		t.Errorf("got %d, want 21", v)
+	if v := res.Version(); v != 25 {
+		t.Errorf("got %d, want 25", v)
 	}
 }
