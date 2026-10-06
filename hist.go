@@ -131,16 +131,18 @@ func goroot() string {
 		return g
 	}
 
-	//lint:ignore SA1019 We actually do want the behavior that is the reason runtime.GOROOT is deprecated.
-	return runtime.GOROOT()
+	return runtime.GOROOT() // nolint:staticcheck
 }
 
-func readHistVersion(h *history, fsys fs.FS, filename string, v int) error {
+func readHistVersion(h *history, fsys fs.FS, filename string, v int) (err error) {
 	f, err := fsys.Open(filename)
 	if err != nil {
 		return errors.Wrapf(err, "opening %s", filename)
 	}
-	defer f.Close()
+	defer func() {
+		err2 := f.Close()
+		err = errors.Join(err, errors.Wrapf(err2, "closing %s", filename))
+	}()
 
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {

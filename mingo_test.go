@@ -72,7 +72,7 @@ func TestLangChecks(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					defer os.RemoveAll(tmpdir)
+					defer os.RemoveAll(tmpdir) // nolint:errcheck
 
 					gomod := filepath.Join(tmpdir, "go.mod")
 					if err := os.WriteFile(gomod, []byte("module foo\ngo 1.23.0\n"), 0644); err != nil {
@@ -86,21 +86,31 @@ func TestLangChecks(t *testing.T) {
 
 					t.Log(tmpfile.Name())
 
-					fmt.Fprint(tmpfile, "package foo\n\n")
+					if _, err := fmt.Fprint(tmpfile, "package foo\n\n"); err != nil {
+						t.Fatal(err)
+					}
 
 					combinedImports := append(earlierImports, imports...)
 					sort.Strings(combinedImports)
 					combinedImports = slices.Compact(combinedImports)
 
 					if len(combinedImports) > 0 {
-						fmt.Fprint(tmpfile, "import (\n")
-						for _, imp := range combinedImports {
-							fmt.Fprintf(tmpfile, "\t%s\n", imp)
+						if _, err := fmt.Fprint(tmpfile, "import (\n"); err != nil {
+							t.Fatal(err)
 						}
-						fmt.Fprint(tmpfile, ")\n\n")
+						for _, imp := range combinedImports {
+							if _, err := fmt.Fprintf(tmpfile, "\t%s\n", imp); err != nil {
+								t.Fatal(err)
+							}
+						}
+						if _, err := fmt.Fprint(tmpfile, ")\n\n"); err != nil {
+							t.Fatal(err)
+						}
 					}
 
-					fmt.Fprint(tmpfile, earlierCode)
+					if _, err := fmt.Fprint(tmpfile, earlierCode); err != nil {
+						t.Fatal(err)
+					}
 					if _, err := fmt.Fprint(tmpfile, code); err != nil {
 						t.Fatal(err)
 					}
@@ -196,7 +206,7 @@ func readGoFile(filename string) (string, []string, error) {
 	if err != nil {
 		return "", nil, errors.Wrapf(err, "opening %s", filename)
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	var (
 		sc        = bufio.NewScanner(f)
@@ -246,7 +256,7 @@ func readGoFile(filename string) (string, []string, error) {
 		if strings.HasPrefix(line, "package ") {
 			continue
 		}
-		fmt.Fprintln(&code, line)
+		fmt.Fprintln(&code, line) // nolint:errcheck
 	}
 	return code.String(), imports, errors.Wrapf(sc.Err(), "scanning %s", filename)
 }
@@ -259,7 +269,7 @@ func withGoMod(t *testing.T, tmpdir string, ver int, f func()) {
 	if err := os.WriteFile(gomod, []byte(gomodStr), 0644); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(gomod)
+	defer os.Remove(gomod) // nolint:errcheck
 
 	f()
 }
