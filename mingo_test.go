@@ -72,7 +72,7 @@ func TestLangChecks(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					defer os.RemoveAll(tmpdir)
+					defer os.RemoveAll(tmpdir) // nolint:errcheck
 
 					gomod := filepath.Join(tmpdir, "go.mod")
 					if err := os.WriteFile(gomod, []byte("module foo\ngo 1.23.0\n"), 0644); err != nil {
@@ -196,7 +196,7 @@ func readGoFile(filename string) (string, []string, error) {
 	if err != nil {
 		return "", nil, errors.Wrapf(err, "opening %s", filename)
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	var (
 		sc        = bufio.NewScanner(f)
@@ -259,7 +259,7 @@ func withGoMod(t *testing.T, tmpdir string, ver int, f func()) {
 	if err := os.WriteFile(gomod, []byte(gomodStr), 0644); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(gomod)
+	defer os.Remove(gomod) // nolint:errcheck
 
 	f()
 }

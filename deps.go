@@ -46,7 +46,7 @@ type depScanner interface {
 
 type realDepScanner struct{}
 
-func (s realDepScanner) scan(modpath, version string) (modDownload, error) {
+func (s realDepScanner) scan(modpath, version string) (_ modDownload, err error) {
 	var result modDownload
 
 	cmd := exec.Command("go", "mod", "download", "-json", modpath+"@"+version)
@@ -58,14 +58,13 @@ func (s realDepScanner) scan(modpath, version string) (modDownload, error) {
 	if err := cmd.Start(); err != nil {
 		return result, errors.Wrapf(err, "starting download of %s", modpath)
 	}
-	defer cmd.Wait()
+	defer func() {
+		err2 := cmd.Wait()
+		err = errors.Join(err, errors.Wrapf(err2, "waiting for download of %s", modpath))
+	}()
 
-	if err := json.NewDecoder(stdout).Decode(&result); err != nil {
-		return result, errors.Wrapf(err, "decoding download of %s", modpath)
-	}
-
-	err = cmd.Wait()
-	return result, errors.Wrapf(err, "waiting for download of %s", modpath)
+	err = json.NewDecoder(stdout).Decode(&result)
+	return result, errors.Wrapf(err, "decoding download of %s", modpath)
 }
 
 func (s *Scanner) scanDep(mv module.Version) error {

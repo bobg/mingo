@@ -54,10 +54,6 @@ func (p *pkgScanner) result(r Result) bool {
 	return p.s.result(r)
 }
 
-func (p *pkgScanner) isMax() bool {
-	return p.s.isMax()
-}
-
 func (p *pkgScanner) isTypeExpr(expr ast.Expr) bool {
 	tv, ok := p.info.Types[expr]
 	if !ok {
