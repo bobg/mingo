@@ -49,3 +49,15 @@ func TestBug30(t *testing.T) {
 		t.Errorf("got %d, want 24", v)
 	}
 }
+
+// https://github.com/bobg/mingo/issues/13
+func TestIssue13(t *testing.T) {
+	var s Scanner
+	res, err := s.ScanDir("testdata/issue13")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := res.Version(); v != 21 {
+		t.Errorf("got %d, want 21", v)
+	}
+}
