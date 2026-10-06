@@ -44,7 +44,12 @@ jobs:
           # only-new-issues: true
 
       - name: Unit tests
+        if: ${{ runner.os == 'Linux' }}
         run: go test -coverprofile=cover.out ./...
+
+      - name: Unit tests (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        run: go test ./...
 
       - name: Send coverage
         if: runner.os == 'Linux'
