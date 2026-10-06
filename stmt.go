@@ -134,6 +134,9 @@ func (p *pkgScanner) blockStmt(stmt *ast.BlockStmt) (bool, error) {
 }
 
 func (p *pkgScanner) ifStmt(stmt *ast.IfStmt) (bool, error) {
+	if isMax, err := p.stmt(stmt.Init); err != nil || isMax {
+		return isMax, err
+	}
 	if isMax, err := p.expr(stmt.Cond); err != nil || isMax {
 		return isMax, err
 	}
