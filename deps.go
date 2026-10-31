@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -19,21 +20,57 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 		return errors.Wrapf(err, "reading go.mod at %s", gomodPath)
 	}
 
-	f, err := modfile.ParseLax(gomodPath, gomodBytes, nil)
+	f, err := modfile.Parse(gomodPath, gomodBytes, nil)
 	if err != nil {
 		return errors.Wrapf(err, "parsing go.mod at %s", gomodPath)
 	}
+	modDir := filepath.Dir(gomodPath)
 
 	for _, r := range f.Require {
 		if r.Indirect && !s.Indirect {
 			continue
 		}
-		if err := s.scanDep(r.Mod); err != nil {
+
+		mod := r.Mod
+		if len(f.Replace) > 0 {
+			if rep := findReplace(f.Replace, mod); rep != nil {
+				if modfile.IsDirectoryPath(rep.New.Path) {
+					if err := s.scanLocalDep(mod, modDir, rep.New.Path); err != nil {
+						return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
+					}
+					continue
+				}
+
+				mod = rep.New
+				if mod.Version == "" {
+					mod.Version = r.Mod.Version
+				}
+			}
+		}
+
+		if err := s.scanDep(mod); err != nil {
 			return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
 		}
 	}
 
 	return nil
+}
+
+func findReplace(replaces []*modfile.Replace, mv module.Version) *modfile.Replace {
+	var rep *modfile.Replace
+	for _, r := range replaces {
+		if r.Old.Path != mv.Path {
+			continue
+		}
+		if r.Old.Version == "" {
+			rep = r
+			continue
+		}
+		if r.Old.Version == mv.Version {
+			return r
+		}
+	}
+	return rep
 }
 
 type modDownload struct {
@@ -78,13 +115,26 @@ func (s *Scanner) scanDep(mv module.Version) error {
 		return errors.Wrapf(err, "scanning %s@%s", mv.Path, mv.Version)
 	}
 
-	gomodBytes, err := os.ReadFile(download.GoMod)
-	if err != nil {
-		return errors.Wrapf(err, "reading go.mod of %s", mv.Path)
+	return s.recordDepGoMod(download.GoMod, mv.Path, mv.Version)
+}
+
+func (s *Scanner) scanLocalDep(orig module.Version, modDir, localPath string) error {
+	dir := localPath
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(modDir, localPath)
 	}
-	parsed, err := modfile.ParseLax(download.GoMod, gomodBytes, nil)
+
+	return s.recordDepGoMod(filepath.Join(dir, "go.mod"), orig.Path, orig.Version)
+}
+
+func (s *Scanner) recordDepGoMod(gomodPath, modpath, modversion string) error {
+	gomodBytes, err := os.ReadFile(gomodPath)
 	if err != nil {
-		return errors.Wrapf(err, "parsing go.mod of %s", mv.Path)
+		return errors.Wrapf(err, "reading go.mod of %s", modpath)
+	}
+	parsed, err := modfile.ParseLax(gomodPath, gomodBytes, nil)
+	if err != nil {
+		return errors.Wrapf(err, "parsing go.mod of %s", modpath)
 	}
 	if parsed.Go == nil {
 		// Probably a pre-Go 1.11 module.
@@ -92,17 +142,17 @@ func (s *Scanner) scanDep(mv module.Version) error {
 	}
 	parts := strings.SplitN(parsed.Go.Version, ".", 3)
 	if len(parts) < 2 {
-		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
+		return fmt.Errorf("go.mod of %s has invalid go version %s", modpath, parsed.Go.Version)
 	}
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
+		return fmt.Errorf("go.mod of %s has invalid go version %s", modpath, parsed.Go.Version)
 	}
 
 	s.result(depResult{
 		version:    minor,
-		modpath:    mv.Path,
-		modversion: mv.Version,
+		modpath:    modpath,
+		modversion: modversion,
 	})
 	return nil
 }
