@@ -85,3 +85,11 @@ func TestIssue43(t *testing.T) {
 		t.Errorf("got %d, want 22", v)
 	}
 }
+
+func TestIssue43IgnoreReplace(t *testing.T) {
+	s := Scanner{Deps: true, Indirect: true, IgnoreReplace: true}
+	_, err := s.ScanDir("testdata/issue43")
+	if err == nil {
+		t.Fatal("expected error when ignoring replace, got nil")
+	}
+}
