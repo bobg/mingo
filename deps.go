@@ -32,7 +32,7 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 		}
 
 		mod := r.Mod
-		if len(f.Replace) > 0 {
+		if !s.IgnoreReplace && len(f.Replace) > 0 {
 			if rep := findReplace(f.Replace, mod); rep != nil {
 				if modfile.IsDirectoryPath(rep.New.Path) {
 					if err := s.scanLocalDep(mod, modDir, rep.New.Path); err != nil {

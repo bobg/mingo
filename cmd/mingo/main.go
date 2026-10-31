@@ -22,9 +22,11 @@ func run() error {
 	var (
 		api, deps                     string
 		check, strict, tests, verbose bool
+		replace                       bool
 	)
 	flag.StringVar(&api, "api", "", "path to api directory")
 	flag.StringVar(&deps, "deps", "all", "which dependencies to scan (all, direct, none)")
+	flag.BoolVar(&replace, "replace", true, "follow replace directives when scanning dependencies")
 	flag.BoolVar(&check, "check", false, "check that go.mod declares the right version of Go or higher")
 	flag.BoolVar(&strict, "strict", false, "check that go.mod declares exactly the right version of Go")
 	flag.BoolVar(&tests, "tests", false, "include tests")
@@ -48,13 +50,14 @@ func run() error {
 	}
 
 	s := mingo.Scanner{
-		HistDir:  api,
-		Verbose:  verbose,
-		Deps:     deps != "none",
-		Indirect: deps == "all",
-		Tests:    tests,
-		Check:    check,
-		Strict:   strict,
+		HistDir:       api,
+		Verbose:       verbose,
+		Deps:          deps != "none",
+		Indirect:      deps == "all",
+		IgnoreReplace: !replace,
+		Tests:         tests,
+		Check:         check,
+		Strict:        strict,
 	}
 
 	result, err := s.ScanDir(dir)

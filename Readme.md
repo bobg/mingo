@@ -31,7 +31,7 @@ For library usage please see
 Command-line usage:
 
 ```sh
-mingo [-v] [-deps (all|direct|none)] [-tests] [-check] [-api API] [DIR]
+mingo [-v] [-deps (all|direct|none)] [-replace] [-tests] [-check] [-api API] [DIR]
 ```
 
 This command runs mingo on the Go module in the given directory DIR
@@ -39,14 +39,15 @@ This command runs mingo on the Go module in the given directory DIR
 
 The flags and their meanings are:
 
-| flag       | meaning                                                                       |
-|------------|-------------------------------------------------------------------------------|
-| -v         | Run verbosely                                                                 |
-| -deps      | Dependencies to include - `all` (the default), `direct` only, or `none`       |
-| -tests     | Include tests                                                                 |
-| -check     | Check that go.mod declares the right version of Go or higher                  |
-| -strict    | Check that go.mod declares exactly the right version of Go                    |
-| -api API   | Find the Go API files in the directory API instead of the default $GOROOT/api |
+| flag     | meaning                                                                       |
+| -------- | ----------------------------------------------------------------------------- |
+| -v       | Run verbosely                                                                 |
+| -deps    | Dependencies to include - `all` (the default), `direct` only, or `none`       |
+| -replace | Follow `replace` directives (default true; `-replace=false` ignores them)     |
+| -tests   | Include tests                                                                 |
+| -check   | Check that go.mod declares the right version of Go or higher                  |
+| -strict  | Check that go.mod declares exactly the right version of Go                    |
+| -api API | Find the Go API files in the directory API instead of the default $GOROOT/api |
 
 Normal output is the lowest minor version of Go
 (the x in Go 1.x)
@@ -64,6 +65,11 @@ to change the result.
 This includes both direct and indirect imports.
 Use `-deps direct` to consider direct imports only,
 and `-deps none` to exclude imports.
+
+By default mingo follows `replace` directives in the main module's `go.mod` file:
+a dependency replaced by a local directory is read from that directory,
+and a dependency replaced by another module version is scanned at the replacement version.
+Use `-replace=false` to ignore `replace` directives and scan the original versions instead.
 
 ## Discussion
 
