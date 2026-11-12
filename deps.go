@@ -20,7 +20,12 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 		return errors.Wrapf(err, "reading go.mod at %s", gomodPath)
 	}
 
-	f, err := modfile.Parse(gomodPath, gomodBytes, nil)
+	var f *modfile.File
+	if s.Main {
+		f, err = modfile.Parse(gomodPath, gomodBytes, nil)
+	} else {
+		f, err = modfile.ParseLax(gomodPath, gomodBytes, nil)
+	}
 	if err != nil {
 		return errors.Wrapf(err, "parsing go.mod at %s", gomodPath)
 	}
@@ -96,7 +101,7 @@ func (s realDepScanner) scan(modpath, version string) (_ modDownload, err error)
 }
 
 func (s *Scanner) resolveDep(mv module.Version, modDir string, replaces []*modfile.Replace) (module.Version, depScanner) {
-	if s.IgnoreReplace || len(replaces) == 0 {
+	if !s.Main || len(replaces) == 0 {
 		return mv, s.depScanner
 	}
 

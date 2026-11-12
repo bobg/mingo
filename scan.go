@@ -18,14 +18,14 @@ import (
 
 // Scanner scans a directory or set of packages to determine the lowest-numbered version of Go 1.x that can build them.
 type Scanner struct {
-	Deps          bool   // include dependencies
-	Indirect      bool   // with Deps, include indirect dependencies
-	IgnoreReplace bool   // with Deps, ignore replace directives
-	Verbose       bool   // be verbose
-	Tests         bool   // scan *_test.go files
-	Check         bool   // produce an error if the module declares a version in go.mod lower than the computed minimum
-	Strict        bool   // with Check, require the go.mod declaration to be equal to the computed minimum
-	HistDir       string // find Go stdlib history in this directory (default: $GOROOT/api)
+	Deps     bool   // include dependencies
+	Indirect bool   // with Deps, include indirect dependencies
+	Main     bool   // treat the module as the main module
+	Verbose  bool   // be verbose
+	Tests    bool   // scan *_test.go files
+	Check    bool   // produce an error if the module declares a version in go.mod lower than the computed minimum
+	Strict   bool   // with Check, require the go.mod declaration to be equal to the computed minimum
+	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
 
 	Result Result
 

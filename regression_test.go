@@ -76,7 +76,7 @@ func TestBug37(t *testing.T) {
 
 // https://github.com/bobg/mingo/issues/43
 func TestIssue43(t *testing.T) {
-	s := Scanner{Deps: true, Indirect: true}
+	s := Scanner{Deps: true, Indirect: true, Main: true}
 	res, err := s.ScanDir("testdata/issue43")
 	if err != nil {
 		t.Fatal(err)
@@ -86,8 +86,8 @@ func TestIssue43(t *testing.T) {
 	}
 }
 
-func TestIssue43IgnoreReplace(t *testing.T) {
-	s := Scanner{Deps: true, Indirect: true, IgnoreReplace: true}
+func TestIssue43NotMain(t *testing.T) {
+	s := Scanner{Deps: true, Indirect: true}
 	_, err := s.ScanDir("testdata/issue43")
 	if err == nil {
 		t.Fatal("expected error when ignoring replace, got nil")
