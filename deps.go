@@ -31,24 +31,7 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 			continue
 		}
 
-		mod := r.Mod
-		if !s.IgnoreReplace && len(f.Replace) > 0 {
-			if rep := findReplace(f.Replace, mod); rep != nil {
-				if modfile.IsDirectoryPath(rep.New.Path) {
-					if err := s.scanLocalDep(mod, modDir, rep.New.Path); err != nil {
-						return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
-					}
-					continue
-				}
-
-				mod = rep.New
-				if mod.Version == "" {
-					mod.Version = r.Mod.Version
-				}
-			}
-		}
-
-		if err := s.scanDep(mod); err != nil {
+		if err := s.scanDep(s.resolveDep(r.Mod, modDir, f.Replace)); err != nil {
 			return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
 		}
 	}
@@ -81,6 +64,14 @@ type depScanner interface {
 	scan(modpath, version string) (modDownload, error)
 }
 
+type localDepScanner struct {
+	gomod string
+}
+
+func (l localDepScanner) scan(_, _ string) (modDownload, error) {
+	return modDownload{GoMod: l.gomod}, nil
+}
+
 type realDepScanner struct{}
 
 func (s realDepScanner) scan(modpath, version string) (_ modDownload, err error) {
@@ -104,8 +95,34 @@ func (s realDepScanner) scan(modpath, version string) (_ modDownload, err error)
 	return result, errors.Wrapf(err, "decoding download of %s", modpath)
 }
 
-func (s *Scanner) scanDep(mv module.Version) error {
-	scanner := s.depScanner
+func (s *Scanner) resolveDep(mv module.Version, modDir string, replaces []*modfile.Replace) (module.Version, depScanner) {
+	if s.IgnoreReplace || len(replaces) == 0 {
+		return mv, s.depScanner
+	}
+
+	rep := findReplace(replaces, mv)
+	if rep == nil {
+		return mv, s.depScanner
+	}
+
+	if modfile.IsDirectoryPath(rep.New.Path) {
+		dir := rep.New.Path
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(modDir, dir)
+		}
+
+		return mv, localDepScanner{gomod: filepath.Join(dir, "go.mod")}
+	}
+
+	eff := rep.New
+	if eff.Version == "" {
+		eff.Version = mv.Version
+	}
+
+	return eff, s.depScanner
+}
+
+func (s *Scanner) scanDep(mv module.Version, scanner depScanner) error {
 	if scanner == nil {
 		scanner = realDepScanner{}
 	}
@@ -115,26 +132,13 @@ func (s *Scanner) scanDep(mv module.Version) error {
 		return errors.Wrapf(err, "scanning %s@%s", mv.Path, mv.Version)
 	}
 
-	return s.recordDepGoMod(download.GoMod, mv.Path, mv.Version)
-}
-
-func (s *Scanner) scanLocalDep(orig module.Version, modDir, localPath string) error {
-	dir := localPath
-	if !filepath.IsAbs(dir) {
-		dir = filepath.Join(modDir, localPath)
-	}
-
-	return s.recordDepGoMod(filepath.Join(dir, "go.mod"), orig.Path, orig.Version)
-}
-
-func (s *Scanner) recordDepGoMod(gomodPath, modpath, modversion string) error {
-	gomodBytes, err := os.ReadFile(gomodPath)
+	gomodBytes, err := os.ReadFile(download.GoMod)
 	if err != nil {
-		return errors.Wrapf(err, "reading go.mod of %s", modpath)
+		return errors.Wrapf(err, "reading go.mod of %s", mv.Path)
 	}
-	parsed, err := modfile.ParseLax(gomodPath, gomodBytes, nil)
+	parsed, err := modfile.ParseLax(download.GoMod, gomodBytes, nil)
 	if err != nil {
-		return errors.Wrapf(err, "parsing go.mod of %s", modpath)
+		return errors.Wrapf(err, "parsing go.mod of %s", mv.Path)
 	}
 	if parsed.Go == nil {
 		// Probably a pre-Go 1.11 module.
@@ -142,17 +146,17 @@ func (s *Scanner) recordDepGoMod(gomodPath, modpath, modversion string) error {
 	}
 	parts := strings.SplitN(parsed.Go.Version, ".", 3)
 	if len(parts) < 2 {
-		return fmt.Errorf("go.mod of %s has invalid go version %s", modpath, parsed.Go.Version)
+		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
 	}
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return fmt.Errorf("go.mod of %s has invalid go version %s", modpath, parsed.Go.Version)
+		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
 	}
 
 	s.result(depResult{
 		version:    minor,
-		modpath:    modpath,
-		modversion: modversion,
+		modpath:    mv.Path,
+		modversion: mv.Version,
 	})
 	return nil
 }
