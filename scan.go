@@ -20,6 +20,7 @@ import (
 type Scanner struct {
 	Deps     bool   // include dependencies
 	Indirect bool   // with Deps, include indirect dependencies
+	Main     bool   // treat the module as the main module
 	Verbose  bool   // be verbose
 	Tests    bool   // scan *_test.go files
 	Check    bool   // produce an error if the module declares a version in go.mod lower than the computed minimum

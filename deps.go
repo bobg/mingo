@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -19,16 +20,23 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 		return errors.Wrapf(err, "reading go.mod at %s", gomodPath)
 	}
 
-	f, err := modfile.ParseLax(gomodPath, gomodBytes, nil)
+	var f *modfile.File
+	if s.Main {
+		f, err = modfile.Parse(gomodPath, gomodBytes, nil)
+	} else {
+		f, err = modfile.ParseLax(gomodPath, gomodBytes, nil)
+	}
 	if err != nil {
 		return errors.Wrapf(err, "parsing go.mod at %s", gomodPath)
 	}
+	modDir := filepath.Dir(gomodPath)
 
 	for _, r := range f.Require {
 		if r.Indirect && !s.Indirect {
 			continue
 		}
-		if err := s.scanDep(r.Mod); err != nil {
+
+		if err := s.scanDep(s.resolveDep(r.Mod, modDir, f.Replace)); err != nil {
 			return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
 		}
 	}
@@ -42,6 +50,14 @@ type modDownload struct {
 
 type depScanner interface {
 	scan(modpath, version string) (modDownload, error)
+}
+
+type localDepScanner struct {
+	gomod string
+}
+
+func (l localDepScanner) scan(_, _ string) (modDownload, error) {
+	return modDownload{GoMod: l.gomod}, nil
 }
 
 type realDepScanner struct{}
@@ -67,8 +83,51 @@ func (s realDepScanner) scan(modpath, version string) (_ modDownload, err error)
 	return result, errors.Wrapf(err, "decoding download of %s", modpath)
 }
 
-func (s *Scanner) scanDep(mv module.Version) error {
-	scanner := s.depScanner
+func (s *Scanner) resolveDep(mv module.Version, modDir string, replaces []*modfile.Replace) (module.Version, depScanner) {
+	if !s.Main || len(replaces) == 0 {
+		return mv, s.depScanner
+	}
+
+	rep := findReplace(replaces, mv)
+	if rep == nil {
+		return mv, s.depScanner
+	}
+
+	if modfile.IsDirectoryPath(rep.New.Path) {
+		dir := rep.New.Path
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(modDir, dir)
+		}
+
+		return mv, localDepScanner{gomod: filepath.Join(dir, "go.mod")}
+	}
+
+	eff := rep.New
+	if eff.Version == "" {
+		eff.Version = mv.Version
+	}
+
+	return eff, s.depScanner
+}
+
+func findReplace(replaces []*modfile.Replace, mv module.Version) *modfile.Replace {
+	var rep *modfile.Replace
+	for _, r := range replaces {
+		if r.Old.Path != mv.Path {
+			continue
+		}
+		if r.Old.Version == "" {
+			rep = r
+			continue
+		}
+		if r.Old.Version == mv.Version {
+			return r
+		}
+	}
+	return rep
+}
+
+func (s *Scanner) scanDep(mv module.Version, scanner depScanner) error {
 	if scanner == nil {
 		scanner = realDepScanner{}
 	}

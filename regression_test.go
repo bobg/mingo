@@ -73,3 +73,23 @@ func TestBug37(t *testing.T) {
 		t.Errorf("got %d, want 25", v)
 	}
 }
+
+// https://github.com/bobg/mingo/issues/43
+func TestIssue43(t *testing.T) {
+	s := Scanner{Deps: true, Indirect: true, Main: true}
+	res, err := s.ScanDir("testdata/issue43")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := res.Version(); v != 22 {
+		t.Errorf("got %d, want 22", v)
+	}
+}
+
+func TestIssue43NotMain(t *testing.T) {
+	s := Scanner{Deps: true, Indirect: true}
+	_, err := s.ScanDir("testdata/issue43")
+	if err == nil {
+		t.Fatal("expected error when ignoring replace, got nil")
+	}
+}
