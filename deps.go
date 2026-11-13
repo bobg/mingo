@@ -44,23 +44,6 @@ func (s *Scanner) scanDeps(gomodPath string) error {
 	return nil
 }
 
-func findReplace(replaces []*modfile.Replace, mv module.Version) *modfile.Replace {
-	var rep *modfile.Replace
-	for _, r := range replaces {
-		if r.Old.Path != mv.Path {
-			continue
-		}
-		if r.Old.Version == "" {
-			rep = r
-			continue
-		}
-		if r.Old.Version == mv.Version {
-			return r
-		}
-	}
-	return rep
-}
-
 type modDownload struct {
 	GoMod string
 }
@@ -125,6 +108,23 @@ func (s *Scanner) resolveDep(mv module.Version, modDir string, replaces []*modfi
 	}
 
 	return eff, s.depScanner
+}
+
+func findReplace(replaces []*modfile.Replace, mv module.Version) *modfile.Replace {
+	var rep *modfile.Replace
+	for _, r := range replaces {
+		if r.Old.Path != mv.Path {
+			continue
+		}
+		if r.Old.Version == "" {
+			rep = r
+			continue
+		}
+		if r.Old.Version == mv.Version {
+			return r
+		}
+	}
+	return rep
 }
 
 func (s *Scanner) scanDep(mv module.Version, scanner depScanner) error {
