@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/bobg/seqs v1.10.2 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 )

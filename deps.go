@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v4/set"
 )
 
 func (s *Scanner) scanDeps(dir string) error {
@@ -22,10 +23,10 @@ func (s *Scanner) scanDeps(dir string) error {
 		return err
 	}
 
-	seen := make(map[string]bool)
+	seen := set.New[string]()
 	for _, item := range items {
 		if !item.DepOnly && item.Module != nil {
-			seen[item.Module.Path] = true
+			seen.Add(item.Module.Path)
 		}
 	}
 
@@ -37,10 +38,10 @@ func (s *Scanner) scanDeps(dir string) error {
 		if mod.Indirect && !s.Indirect {
 			continue
 		}
-		if seen[mod.Path] {
+		if seen.Has(mod.Path) {
 			continue
 		}
-		seen[mod.Path] = true
+		seen.Add(mod.Path)
 
 		if mod.GoVersion == "" {
 			// Probably a pre-Go 1.11 module.
