@@ -118,7 +118,11 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 	}
 
 	if s.Deps && len(pkgs) > 0 && pkgs[0].Module != nil {
-		if err := s.scanDeps(pkgs[0].Module.GoMod); err != nil {
+		dir := pkgs[0].Module.Dir
+		if dir == "" && pkgs[0].Module.GoMod != "" {
+			dir = filepath.Dir(pkgs[0].Module.GoMod)
+		}
+		if err := s.scanDeps(dir); err != nil {
 			return nil, errors.Wrap(err, "scanning dependencies")
 		}
 	}

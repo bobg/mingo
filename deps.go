@@ -1,110 +1,125 @@
 package mingo
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 
 	"github.com/bobg/errors"
-	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/module"
 )
 
-func (s *Scanner) scanDeps(gomodPath string) error {
-	gomodBytes, err := os.ReadFile(gomodPath)
-	if err != nil {
-		return errors.Wrapf(err, "reading go.mod at %s", gomodPath)
-	}
-
-	f, err := modfile.ParseLax(gomodPath, gomodBytes, nil)
-	if err != nil {
-		return errors.Wrapf(err, "parsing go.mod at %s", gomodPath)
-	}
-
-	for _, r := range f.Require {
-		if r.Indirect && !s.Indirect {
-			continue
-		}
-		if err := s.scanDep(r.Mod); err != nil {
-			return errors.Wrapf(err, "scanning dep %s", r.Mod.Path)
-		}
-	}
-
-	return nil
-}
-
-type modDownload struct {
-	GoMod string
-}
-
-type depScanner interface {
-	scan(modpath, version string) (modDownload, error)
-}
-
-type realDepScanner struct{}
-
-func (s realDepScanner) scan(modpath, version string) (_ modDownload, err error) {
-	var result modDownload
-
-	cmd := exec.Command("go", "mod", "download", "-json", modpath+"@"+version)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return result, errors.Wrapf(err, "creating stdout pipe for download of %s", modpath)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return result, errors.Wrapf(err, "starting download of %s", modpath)
-	}
-	defer func() {
-		err2 := cmd.Wait()
-		err = errors.Join(err, errors.Wrapf(err2, "waiting for download of %s", modpath))
-	}()
-
-	err = json.NewDecoder(stdout).Decode(&result)
-	return result, errors.Wrapf(err, "decoding download of %s", modpath)
-}
-
-func (s *Scanner) scanDep(mv module.Version) error {
+func (s *Scanner) scanDeps(dir string) error {
 	scanner := s.depScanner
 	if scanner == nil {
 		scanner = realDepScanner{}
 	}
 
-	download, err := scanner.scan(mv.Path, mv.Version)
+	items, err := scanner.scan(dir)
 	if err != nil {
-		return errors.Wrapf(err, "scanning %s@%s", mv.Path, mv.Version)
+		return err
 	}
 
-	gomodBytes, err := os.ReadFile(download.GoMod)
-	if err != nil {
-		return errors.Wrapf(err, "reading go.mod of %s", mv.Path)
-	}
-	parsed, err := modfile.ParseLax(download.GoMod, gomodBytes, nil)
-	if err != nil {
-		return errors.Wrapf(err, "parsing go.mod of %s", mv.Path)
-	}
-	if parsed.Go == nil {
-		// Probably a pre-Go 1.11 module.
-		return nil
-	}
-	parts := strings.SplitN(parsed.Go.Version, ".", 3)
-	if len(parts) < 2 {
-		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
-	}
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return fmt.Errorf("go.mod of %s has invalid go version %s", mv.Path, parsed.Go.Version)
+	seen := make(map[string]bool)
+	for _, item := range items {
+		if !item.DepOnly && item.Module != nil {
+			seen[item.Module.Path] = true
+		}
 	}
 
-	s.result(depResult{
-		version:    minor,
-		modpath:    mv.Path,
-		modversion: mv.Version,
-	})
+	for _, item := range items {
+		if !item.DepOnly || item.Module == nil {
+			continue
+		}
+		mod := item.Module
+		if mod.Indirect && !s.Indirect {
+			continue
+		}
+		if seen[mod.Path] {
+			continue
+		}
+		seen[mod.Path] = true
+
+		if mod.GoVersion == "" {
+			// Probably a pre-Go 1.11 module.
+			continue
+		}
+		parts := strings.SplitN(mod.GoVersion, ".", 3)
+		if len(parts) < 2 {
+			return fmt.Errorf("go.mod of %s has invalid go version %s", mod.Path, mod.GoVersion)
+		}
+		minor, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return fmt.Errorf("go.mod of %s has invalid go version %s", mod.Path, mod.GoVersion)
+		}
+
+		s.result(depResult{
+			version:    minor,
+			modpath:    mod.Path,
+			modversion: mod.Version,
+		})
+	}
+
 	return nil
+}
+
+type listItem struct {
+	DepOnly bool        `json:"DepOnly"`
+	Module  *listModule `json:"Module"`
+}
+
+type listModule struct {
+	Path      string `json:"Path"`
+	Version   string `json:"Version"`
+	Main      bool   `json:"Main"`
+	Indirect  bool   `json:"Indirect"`
+	GoVersion string `json:"GoVersion"`
+}
+
+type depScanner interface {
+	scan(dir string) ([]listItem, error)
+}
+
+type realDepScanner struct{}
+
+func (realDepScanner) scan(dir string) (_ []listItem, err error) {
+	cmd := exec.Command("go", "list", "-deps", "-json", "./...")
+	cmd.Dir = dir
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, errors.Wrap(err, "creating stdout pipe for go list")
+	}
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Start(); err != nil {
+		return nil, errors.Wrap(err, "starting go list")
+	}
+	defer func() {
+		err2 := cmd.Wait()
+		if err2 != nil {
+			if msg := strings.TrimSpace(stderr.String()); msg != "" {
+				err2 = fmt.Errorf("%w: %s", err2, msg)
+			}
+			err = errors.Join(err, errors.Wrap(err2, "waiting for go list"))
+		}
+	}()
+
+	var items []listItem
+	dec := json.NewDecoder(stdout)
+	for dec.More() {
+		var item listItem
+		if err := dec.Decode(&item); err != nil {
+			return nil, errors.Wrap(err, "decoding go list output")
+		}
+		items = append(items, item)
+	}
+
+	return items, nil
 }
 
 type depResult struct {
@@ -114,5 +129,8 @@ type depResult struct {
 
 func (r depResult) Version() int { return r.version }
 func (r depResult) String() string {
+	if r.modversion == "" {
+		return fmt.Sprintf("%s declares Go version 1.%d", r.modpath, r.version)
+	}
 	return fmt.Sprintf("%s@%s declares Go version 1.%d", r.modpath, r.modversion, r.version)
 }
