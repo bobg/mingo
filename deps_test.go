@@ -7,45 +7,39 @@ import (
 )
 
 func TestScanDeps(t *testing.T) {
-	items := []listItem{
-		{
-			DepOnly: false,
-			Module: &listModule{
-				Path:      "x.y/z",
-				Main:      true,
-				GoVersion: "1.21.0",
-			},
+	items := []listItem{{
+		DepOnly: false,
+		Module: &listModule{
+			Path:      "x.y/z",
+			Main:      true,
+			GoVersion: "1.21.0",
 		},
-		{
-			DepOnly: true,
-			Module:  nil, // stdlib package
+	}, {
+		DepOnly: true,
+		Module:  nil, // stdlib package
+	}, {
+		DepOnly: true,
+		Module: &listModule{
+			Path:      "pre.go111/mod",
+			Version:   "v0.1.0",
+			GoVersion: "",
 		},
-		{
-			DepOnly: true,
-			Module: &listModule{
-				Path:      "pre.go111/mod",
-				Version:   "v0.1.0",
-				GoVersion: "",
-			},
+	}, {
+		DepOnly: true,
+		Module: &listModule{
+			Path:      "foo.bar/baz",
+			Version:   "v1.2.3",
+			GoVersion: "1.16",
 		},
-		{
-			DepOnly: true,
-			Module: &listModule{
-				Path:      "foo.bar/baz",
-				Version:   "v1.2.3",
-				GoVersion: "1.16",
-			},
+	}, {
+		DepOnly: true,
+		Module: &listModule{
+			Path:      "quux.plugh/xyzzy/v4",
+			Version:   "v4.5.6",
+			Indirect:  true,
+			GoVersion: "1.20.0",
 		},
-		{
-			DepOnly: true,
-			Module: &listModule{
-				Path:      "quux.plugh/xyzzy/v4",
-				Version:   "v4.5.6",
-				Indirect:  true,
-				GoVersion: "1.20.0",
-			},
-		},
-	}
+	}}
 
 	t.Run("direct only", func(t *testing.T) {
 		s := Scanner{
@@ -91,12 +85,15 @@ func TestScanDeps(t *testing.T) {
 
 func TestScanDepsIntegration(t *testing.T) {
 	t.Run("replace", func(t *testing.T) {
-		dir := t.TempDir()
-		mainDir := filepath.Join(dir, "main")
-		directDir := filepath.Join(dir, "direct")
-		indirectDir := filepath.Join(dir, "indirect")
+		var (
+			dir         = t.TempDir()
+			mainDir     = filepath.Join(dir, "main")
+			directDir   = filepath.Join(dir, "direct")
+			indirectDir = filepath.Join(dir, "indirect")
+			testdepDir  = filepath.Join(dir, "testdep")
+		)
 
-		for _, d := range []string{mainDir, directDir, indirectDir} {
+		for _, d := range []string{mainDir, directDir, indirectDir, testdepDir} {
 			if err := os.MkdirAll(d, 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -109,11 +106,13 @@ go 1.25
 require (
 	example.com/direct v1.0.0
 	example.com/indirect v1.0.0 // indirect
+	example.com/testdep v1.0.0
 )
 
 replace (
 	example.com/direct => ../direct
 	example.com/indirect => ../indirect
+	example.com/testdep => ../testdep
 )
 `)
 		writeTestFile(t, filepath.Join(mainDir, "main.go"), `package main
@@ -123,6 +122,10 @@ import _ "example.com/direct"
 func main() {
 	return
 }
+`)
+		writeTestFile(t, filepath.Join(mainDir, "main_test.go"), `package main
+
+import _ "example.com/testdep"
 `)
 
 		writeTestFile(t, filepath.Join(directDir, "go.mod"), `module example.com/direct
@@ -141,6 +144,13 @@ import _ "example.com/indirect"
 go 1.24
 `)
 		writeTestFile(t, filepath.Join(indirectDir, "indirect.go"), `package indirect
+`)
+
+		writeTestFile(t, filepath.Join(testdepDir, "go.mod"), `module example.com/testdep
+
+go 1.25
+`)
+		writeTestFile(t, filepath.Join(testdepDir, "testdep.go"), `package testdep
 `)
 
 		t.Run("direct only", func(t *testing.T) {
@@ -162,6 +172,17 @@ go 1.24
 			}
 			if got := res.Version(); got != 24 {
 				t.Errorf("got %d, want 24 (%s)", got, res)
+			}
+		})
+
+		t.Run("with tests", func(t *testing.T) {
+			s := Scanner{Deps: true, Tests: true}
+			res, err := s.ScanDir(mainDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := res.Version(); got != 25 {
+				t.Errorf("got %d, want 25 (%s)", got, res)
 			}
 		})
 	})

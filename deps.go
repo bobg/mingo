@@ -83,7 +83,7 @@ type depScanner interface {
 	scan(dir string) ([]listItem, error)
 }
 
-type realDepScanner struct{
+type realDepScanner struct {
 	tests bool
 }
 
