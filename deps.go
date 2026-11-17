@@ -15,7 +15,7 @@ import (
 func (s *Scanner) scanDeps(dir string, pkgDirs ...string) error {
 	scanner := s.depScanner
 	if scanner == nil {
-		scanner = realDepScanner{tests: s.Tests}
+		scanner = realDepScanner{tests: s.Tests, buildFlags: s.BuildFlags}
 	}
 
 	items, err := scanner.scan(dir, pkgDirs...)
@@ -84,11 +84,13 @@ type depScanner interface {
 }
 
 type realDepScanner struct {
-	tests bool
+	tests      bool
+	buildFlags []string
 }
 
 func (s realDepScanner) scan(dir string, pkgDirs ...string) (_ []listItem, err error) {
 	args := []string{"list", "-deps", "-json"}
+	args = append(args, s.buildFlags...)
 	if s.tests {
 		args = append(args, "-test")
 	}
