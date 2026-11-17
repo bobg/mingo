@@ -1,10 +1,6 @@
 package mingo
 
-import (
-	"os"
-	"path/filepath"
-	"testing"
-)
+import "testing"
 
 func TestScanDeps(t *testing.T) {
 	items := []listItem{{
@@ -85,73 +81,7 @@ func TestScanDeps(t *testing.T) {
 
 func TestScanDepsIntegration(t *testing.T) {
 	t.Run("replace", func(t *testing.T) {
-		var (
-			dir         = t.TempDir()
-			mainDir     = filepath.Join(dir, "main")
-			directDir   = filepath.Join(dir, "direct")
-			indirectDir = filepath.Join(dir, "indirect")
-			testdepDir  = filepath.Join(dir, "testdep")
-		)
-
-		for _, d := range []string{mainDir, directDir, indirectDir, testdepDir} {
-			if err := os.MkdirAll(d, 0o755); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		writeTestFile(t, filepath.Join(mainDir, "go.mod"), `module example.com/main
-
-go 1.25
-
-require (
-	example.com/direct v1.0.0
-	example.com/indirect v1.0.0 // indirect
-	example.com/testdep v1.0.0
-)
-
-replace (
-	example.com/direct => ../direct
-	example.com/indirect => ../indirect
-	example.com/testdep => ../testdep
-)
-`)
-		writeTestFile(t, filepath.Join(mainDir, "main.go"), `package main
-
-import _ "example.com/direct"
-
-func main() {
-	return
-}
-`)
-		writeTestFile(t, filepath.Join(mainDir, "main_test.go"), `package main
-
-import _ "example.com/testdep"
-`)
-
-		writeTestFile(t, filepath.Join(directDir, "go.mod"), `module example.com/direct
-
-go 1.20
-
-require example.com/indirect v1.0.0
-`)
-		writeTestFile(t, filepath.Join(directDir, "direct.go"), `package direct
-
-import _ "example.com/indirect"
-`)
-
-		writeTestFile(t, filepath.Join(indirectDir, "go.mod"), `module example.com/indirect
-
-go 1.24
-`)
-		writeTestFile(t, filepath.Join(indirectDir, "indirect.go"), `package indirect
-`)
-
-		writeTestFile(t, filepath.Join(testdepDir, "go.mod"), `module example.com/testdep
-
-go 1.25
-`)
-		writeTestFile(t, filepath.Join(testdepDir, "testdep.go"), `package testdep
-`)
+		const mainDir = "testdata/deps/replace/main"
 
 		t.Run("direct only", func(t *testing.T) {
 			s := Scanner{Deps: true}
@@ -188,47 +118,8 @@ go 1.25
 	})
 
 	t.Run("gowork", func(t *testing.T) {
-		dir := t.TempDir()
-		mainDir := filepath.Join(dir, "main")
-		depDir := filepath.Join(dir, "dep")
-
-		for _, d := range []string{mainDir, depDir} {
-			if err := os.MkdirAll(d, 0o755); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		writeTestFile(t, filepath.Join(dir, "go.work"), `go 1.25
-
-use (
-	./main
-	./dep
-)
-`)
-		writeTestFile(t, filepath.Join(mainDir, "go.mod"), `module example.com/main
-
-go 1.25
-
-require example.com/dep v1.0.0
-`)
-		writeTestFile(t, filepath.Join(mainDir, "main.go"), `package main
-
-import _ "example.com/dep"
-
-func main() {
-	return
-}
-`)
-
-		writeTestFile(t, filepath.Join(depDir, "go.mod"), `module example.com/dep
-
-go 1.24
-`)
-		writeTestFile(t, filepath.Join(depDir, "dep.go"), `package dep
-`)
-
 		s := Scanner{Deps: true}
-		res, err := s.ScanDir(mainDir)
+		res, err := s.ScanDir("testdata/deps/gowork/main")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -236,13 +127,6 @@ go 1.24
 			t.Errorf("got %d, want 24 (%s)", got, res)
 		}
 	})
-}
-
-func writeTestFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
 }
 
 type mockDepScanner []listItem
