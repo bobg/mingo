@@ -119,6 +119,17 @@ func TestScanDepsIntegration(t *testing.T) {
 				t.Errorf("got %d, want 25 (%s)", got, res)
 			}
 		})
+
+		t.Run("with build flags", func(t *testing.T) {
+			s := Scanner{Deps: true, BuildFlags: []string{"-tags=customtag"}}
+			res, err := s.ScanDir(mainDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := res.Version(); got != 26 {
+				t.Errorf("got %d, want 26 (%s)", got, res)
+			}
+		})
 	})
 
 	t.Run("gowork", func(t *testing.T) {
