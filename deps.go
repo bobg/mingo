@@ -15,7 +15,7 @@ import (
 func (s *Scanner) scanDeps(dir string) error {
 	scanner := s.depScanner
 	if scanner == nil {
-		scanner = realDepScanner{}
+		scanner = realDepScanner{tests: s.Tests}
 	}
 
 	items, err := scanner.scan(dir)
@@ -83,10 +83,17 @@ type depScanner interface {
 	scan(dir string) ([]listItem, error)
 }
 
-type realDepScanner struct{}
+type realDepScanner struct{
+	tests bool
+}
 
-func (realDepScanner) scan(dir string) (_ []listItem, err error) {
-	cmd := exec.Command("go", "list", "-deps", "-json", "./...")
+func (s realDepScanner) scan(dir string) (_ []listItem, err error) {
+	args := []string{"list", "-deps", "-json"}
+	if s.tests {
+		args = append(args, "-test")
+	}
+	args = append(args, "./...")
+	cmd := exec.Command("go", args...)
 	cmd.Dir = dir
 
 	stdout, err := cmd.StdoutPipe()
