@@ -1,6 +1,10 @@
 package mingo
 
-import "testing"
+import (
+	"testing"
+
+	"golang.org/x/tools/go/packages"
+)
 
 func TestScanDeps(t *testing.T) {
 	items := []listItem{{
@@ -127,10 +131,47 @@ func TestScanDepsIntegration(t *testing.T) {
 			t.Errorf("got %d, want 24 (%s)", got, res)
 		}
 	})
+
+	t.Run("sibling", func(t *testing.T) {
+		const (
+			mainDir = "testdata/deps/sibling/main"
+			goodDir = mainDir + "/good"
+		)
+
+		t.Run("ScanDir", func(t *testing.T) {
+			s := Scanner{Deps: true}
+			res, err := s.ScanDir(goodDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := res.Version(); got != 24 {
+				t.Errorf("got %d, want 24 (%s)", got, res)
+			}
+		})
+
+		t.Run("ScanPackages", func(t *testing.T) {
+			conf := &packages.Config{
+				Mode: Mode,
+				Dir:  mainDir,
+			}
+			pkgs, err := packages.Load(conf, "./good")
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := Scanner{Deps: true}
+			res, err := s.ScanPackages(pkgs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := res.Version(); got != 24 {
+				t.Errorf("got %d, want 24 (%s)", got, res)
+			}
+		})
+	})
 }
 
 type mockDepScanner []listItem
 
-func (m mockDepScanner) scan(_ string) ([]listItem, error) {
+func (m mockDepScanner) scan(_ string, _ ...string) ([]listItem, error) {
 	return m, nil
 }

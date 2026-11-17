@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v4/set"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -122,7 +123,13 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 		if dir == "" && pkgs[0].Module.GoMod != "" {
 			dir = filepath.Dir(pkgs[0].Module.GoMod)
 		}
-		if err := s.scanDeps(dir); err != nil {
+		pkgDirs := set.New[string]()
+		for _, pkg := range pkgs {
+			if pkg.Dir != "" {
+				pkgDirs.Add(pkg.Dir)
+			}
+		}
+		if err := s.scanDeps(dir, pkgDirs.Slice()...); err != nil {
 			return nil, errors.Wrap(err, "scanning dependencies")
 		}
 	}

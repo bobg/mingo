@@ -66,6 +66,6 @@ type errDepScanner struct{}
 
 var depScannerErr = errors.New("scan failed")
 
-func (errDepScanner) scan(string) ([]listItem, error) {
+func (errDepScanner) scan(string, ...string) ([]listItem, error) {
 	return nil, depScannerErr
 }

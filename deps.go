@@ -12,13 +12,13 @@ import (
 	"github.com/bobg/go-generics/v4/set"
 )
 
-func (s *Scanner) scanDeps(dir string) error {
+func (s *Scanner) scanDeps(dir string, pkgDirs ...string) error {
 	scanner := s.depScanner
 	if scanner == nil {
 		scanner = realDepScanner{tests: s.Tests}
 	}
 
-	items, err := scanner.scan(dir)
+	items, err := scanner.scan(dir, pkgDirs...)
 	if err != nil {
 		return err
 	}
@@ -80,19 +80,19 @@ type listModule struct {
 }
 
 type depScanner interface {
-	scan(dir string) ([]listItem, error)
+	scan(dir string, pkgDirs ...string) ([]listItem, error)
 }
 
 type realDepScanner struct {
 	tests bool
 }
 
-func (s realDepScanner) scan(dir string) (_ []listItem, err error) {
+func (s realDepScanner) scan(dir string, pkgDirs ...string) (_ []listItem, err error) {
 	args := []string{"list", "-deps", "-json"}
 	if s.tests {
 		args = append(args, "-test")
 	}
-	args = append(args, "./...")
+	args = append(args, pkgDirs...)
 	cmd := exec.Command("go", args...)
 	cmd.Dir = dir
 
