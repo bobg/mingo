@@ -3,6 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/bobg/mingo.svg)](https://pkg.go.dev/github.com/bobg/mingo)
 [![Tests](https://github.com/bobg/mingo/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/mingo/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/mingo/badge.svg?branch=main)](https://coveralls.io/github/bobg/mingo?branch=main)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T8B32A44N9)
 
 This is mingo,
 a library and command-line tool
