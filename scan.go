@@ -13,18 +13,20 @@ import (
 	"strings"
 
 	"github.com/bobg/errors"
+	"github.com/bobg/go-generics/v4/set"
 	"golang.org/x/tools/go/packages"
 )
 
 // Scanner scans a directory or set of packages to determine the lowest-numbered version of Go 1.x that can build them.
 type Scanner struct {
-	Deps     bool   // include dependencies
-	Indirect bool   // with Deps, include indirect dependencies
-	Verbose  bool   // be verbose
-	Tests    bool   // scan *_test.go files
-	Check    bool   // produce an error if the module declares a version in go.mod lower than the computed minimum
-	Strict   bool   // with Check, require the go.mod declaration to be equal to the computed minimum
-	HistDir  string // find Go stdlib history in this directory (default: $GOROOT/api)
+	Deps       bool     // include dependencies
+	Indirect   bool     // with Deps, include indirect dependencies
+	Verbose    bool     // be verbose
+	Tests      bool     // scan *_test.go files
+	BuildFlags []string // flags to pass to the go command when scanning dependencies
+	Check      bool     // produce an error if the module declares a version in go.mod lower than the computed minimum
+	Strict     bool     // with Check, require the go.mod declaration to be equal to the computed minimum
+	HistDir    string   // find Go stdlib history in this directory (default: $GOROOT/api)
 
 	Result Result
 
@@ -66,9 +68,10 @@ func (s *Scanner) ScanDir(dir string) (Result, error) {
 	}
 
 	conf := &packages.Config{
-		Mode:  Mode,
-		Dir:   dir,
-		Tests: s.Tests,
+		Mode:       Mode,
+		Dir:        dir,
+		Tests:      s.Tests,
+		BuildFlags: s.BuildFlags,
 	}
 	pkgs, err := packages.Load(conf, "./...")
 	if err != nil {
@@ -118,7 +121,17 @@ func (s *Scanner) ScanPackages(pkgs []*packages.Package) (Result, error) {
 	}
 
 	if s.Deps && len(pkgs) > 0 && pkgs[0].Module != nil {
-		if err := s.scanDeps(pkgs[0].Module.GoMod); err != nil {
+		dir := pkgs[0].Module.Dir
+		if dir == "" && pkgs[0].Module.GoMod != "" {
+			dir = filepath.Dir(pkgs[0].Module.GoMod)
+		}
+		pkgDirs := set.New[string]()
+		for _, pkg := range pkgs {
+			if pkg.Dir != "" {
+				pkgDirs.Add(pkg.Dir)
+			}
+		}
+		if err := s.scanDeps(dir, pkgDirs.Slice()...); err != nil {
 			return nil, errors.Wrap(err, "scanning dependencies")
 		}
 	}

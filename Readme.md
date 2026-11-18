@@ -3,6 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/bobg/mingo.svg)](https://pkg.go.dev/github.com/bobg/mingo)
 [![Tests](https://github.com/bobg/mingo/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/mingo/actions/workflows/go.yml)
 [![Coverage Status](https://coveralls.io/repos/github/bobg/mingo/badge.svg?branch=main)](https://coveralls.io/github/bobg/mingo?branch=main)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/T8B32A44N9)
 
 This is mingo,
 a library and command-line tool
@@ -39,14 +40,15 @@ This command runs mingo on the Go module in the given directory DIR
 
 The flags and their meanings are:
 
-| flag       | meaning                                                                       |
-|------------|-------------------------------------------------------------------------------|
-| -v         | Run verbosely                                                                 |
-| -deps      | Dependencies to include - `all` (the default), `direct` only, or `none`       |
-| -tests     | Include tests                                                                 |
-| -check     | Check that go.mod declares the right version of Go or higher                  |
-| -strict    | Check that go.mod declares exactly the right version of Go                    |
-| -api API   | Find the Go API files in the directory API instead of the default $GOROOT/api |
+| flag        | meaning                                                                                          |
+|-------------|--------------------------------------------------------------------------------------------------|
+| -v          | Run verbosely                                                                                    |
+| -deps       | Dependencies to include - `all` (the default), `direct` only, or `none`                          |
+| -tests      | Include tests                                                                                    |
+| -buildflags | Space-separated list of flags to pass to the Go toolchain for loading packages and dependencies. |
+| -check      | Check that go.mod declares the right version of Go or higher                                     |
+| -strict     | Check that go.mod declares exactly the right version of Go                                       |
+| -api API    | Find the Go API files in the directory API instead of the default $GOROOT/api                    |
 
 Normal output is the lowest minor version of Go
 (the x in Go 1.x)

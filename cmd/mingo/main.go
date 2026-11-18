@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/bobg/errors"
 
@@ -20,11 +21,12 @@ func main() {
 
 func run() error {
 	var (
-		api, deps                     string
+		api, buildflags, deps         string
 		check, strict, tests, verbose bool
 	)
 	flag.StringVar(&api, "api", "", "path to api directory")
 	flag.StringVar(&deps, "deps", "all", "which dependencies to scan (all, direct, none)")
+	flag.StringVar(&buildflags, "buildflags", "", "space-separated list of flags to pass to the Go toolchain for loading packages and dependencies")
 	flag.BoolVar(&check, "check", false, "check that go.mod declares the right version of Go or higher")
 	flag.BoolVar(&strict, "strict", false, "check that go.mod declares exactly the right version of Go")
 	flag.BoolVar(&tests, "tests", false, "include tests")
@@ -48,13 +50,14 @@ func run() error {
 	}
 
 	s := mingo.Scanner{
-		HistDir:  api,
-		Verbose:  verbose,
-		Deps:     deps != "none",
-		Indirect: deps == "all",
-		Tests:    tests,
-		Check:    check,
-		Strict:   strict,
+		HistDir:    api,
+		Verbose:    verbose,
+		Deps:       deps != "none",
+		Indirect:   deps == "all",
+		Tests:      tests,
+		BuildFlags: strings.Fields(buildflags),
+		Check:      check,
+		Strict:     strict,
 	}
 
 	result, err := s.ScanDir(dir)

@@ -98,3 +98,29 @@ func TestIsWithinDir(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildFlags(t *testing.T) {
+	const dir = "testdata/deps/replace/main"
+
+	t.Run("without build flags", func(t *testing.T) {
+		var s Scanner
+		res, err := s.ScanDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := res.Version(); got != 0 {
+			t.Errorf("got %d, want 0 (%s)", got, res)
+		}
+	})
+
+	t.Run("with build flags", func(t *testing.T) {
+		s := Scanner{BuildFlags: []string{"-tags=customtag"}}
+		res, err := s.ScanDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := res.Version(); got != 24 {
+			t.Errorf("got %d, want 24 (%s)", got, res)
+		}
+	})
+}
