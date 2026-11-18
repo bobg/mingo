@@ -68,9 +68,10 @@ func (s *Scanner) ScanDir(dir string) (Result, error) {
 	}
 
 	conf := &packages.Config{
-		Mode:  Mode,
-		Dir:   dir,
-		Tests: s.Tests,
+		Mode:       Mode,
+		Dir:        dir,
+		Tests:      s.Tests,
+		BuildFlags: s.BuildFlags,
 	}
 	pkgs, err := packages.Load(conf, "./...")
 	if err != nil {
